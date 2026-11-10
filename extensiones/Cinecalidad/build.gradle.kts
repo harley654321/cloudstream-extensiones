@@ -1,4 +1,5 @@
-version = 4
+version = 5
+
 cloudstream {
     description = "Cinecalidad: peliculas y series en latino con estrenos, generos y servidores Vimeos"
     authors = listOf("harley654321")

@@ -1,9 +1,9 @@
 [
   {
-    "fileHash": "sha256-4d982eefc5bce432c6a240b0a9735d6b062ba3a21cb6ec69403da45a7989965e",
+    "fileHash": "sha256-a58c97e43e91e0822b82ce9d0e265cf558014487a6c879da8067c029bfdc20ad",
     "apiVersion": 1,
     "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",
-    "fileSize": 30430,
+    "fileSize": 27642,
     "status": 1,
     "language": "es",
     "authors": [
@@ -14,31 +14,11 @@
       "AnimeMovie",
       "OVA"
     ],
-    "version": 9,
+    "version": 7,
     "internalName": "AnimeAV1",
     "description": "AnimeAV1: catalogo de anime en espanol. Recientes, agregados, populares, mejor puntuados, en emision y peliculas",
-    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/AnimeAV1-v9.cs3",
+    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/AnimeAV1-v7.cs3",
     "name": "AnimeAV1"
-  },
-  {
-    "fileHash": "sha256-86eed37d4a2cb41a54a2301a7e66a1476d2b88a86e3c9196163773a3bdf18c0b",
-    "apiVersion": 1,
-    "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",
-    "fileSize": 20824,
-    "status": 1,
-    "language": "es",
-    "authors": [
-      "harley654321"
-    ],
-    "tvTypes": [
-      "Movie",
-      "TvSeries"
-    ],
-    "version": 4,
-    "internalName": "Cinecalidad",
-    "description": "Cinecalidad: peliculas y series en latino con estrenos, generos y servidores Vimeos",
-    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/Cinecalidad-v4.cs3",
-    "name": "Cinecalidad"
   },
   {
     "fileHash": "sha256-66dbcc061da754ed8dcb5c5eb20cebd1cbb46abd30ff9fb7c93e6448a748e511",

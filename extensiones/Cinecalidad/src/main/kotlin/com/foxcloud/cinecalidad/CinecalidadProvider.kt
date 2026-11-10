@@ -67,11 +67,13 @@ class CinecalidadProvider : MainAPI() {
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         // La app pide "la pagina N de la fila"; aqui N son lotes de paginas del sitio,
         // asi la fila llega larga de una vez y al deslizar sigue cargando sin cortarse.
-        val porLote = 4
+        val porLote = 10
         val desde = (page - 1) * porLote + 1
         val hasta = desde + porLote - 1
 
-        // En paralelo: 4 paginas del sitio por peticion de fila.
+        // En paralelo: 10 paginas del sitio por peticion de fila, asi la fila
+        // llega larga de una vez (~120-160 fichas) sin depender de que la app
+        // pida la siguiente pagina.
         val documentos = (desde..hasta).toList().amap { p ->
             runCatching { app.get(listUrl(request.data, p)).document }.getOrNull()
         }.filterNotNull()
@@ -213,7 +215,11 @@ class CinecalidadProvider : MainAPI() {
                     url = hls,
                     type = ExtractorLinkType.M3U8
                 ) {
-                    this.referer = "https://vimeos.net/"
+                    // El CDN de Vimeos no pide Referer (comprobado en master,
+                    // playlist y segmentos). Dejarlo vacio evita que CloudStream
+                    // tenga que pasar el video por su proxy local, que es lo que
+                    // producia los cortes al reproducir.
+                    this.referer = ""
                     this.quality = Qualities.Unknown.value
                 }
             )
