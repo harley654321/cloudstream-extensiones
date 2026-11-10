@@ -18,14 +18,14 @@ import re
 import sys
 
 import requests
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 BASE = "https://animeav1.com"
 CDN = "https://cdn.animeav1.com"
 AQUI = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SALIDA = os.path.join(AQUI, "caps")
 
-ANCHO, ALTO = 300, 450
+ANCHO, ALTO = 360, 540
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
 
 
@@ -93,21 +93,38 @@ def componer(portada: bytes, cap: str) -> Image.Image:
     img = img.resize((ANCHO, ALTO), Image.LANCZOS)
 
     texto = str(cap)
-    font = fuente(34)
-    capa = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    dibujo = ImageDraw.Draw(capa)
-    caja = dibujo.textbbox((0, 0), texto, font=font)
+    font = fuente(42)
+    # medidas del texto
+    medidor = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+    caja = medidor.textbbox((0, 0), texto, font=font)
     ancho_t, alto_t = caja[2] - caja[0], caja[3] - caja[1]
-    pad_x, pad_y = 11, 5
+    pad_x, pad_y = 18, 10
     ancho_p = ancho_t + pad_x * 2
     alto_p = alto_t + pad_y * 2
-    margen = 9
-    x0, y0 = ANCHO - margen - ancho_p, ALTO - margen - alto_p
+    margen = 20  # despegado del borde
+    x0 = ANCHO - margen - ancho_p
+    y0 = ALTO - margen - alto_p
+    radio = 15
+
+    # sombra suave + pastilla oscura + texto blanco
+    capa = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    dibujo = ImageDraw.Draw(capa)
+    sombra = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    ImageDraw.Draw(sombra).rounded_rectangle(
+        (x0, y0 + 3, x0 + ancho_p, y0 + alto_p + 3), radius=radio, fill=(0, 0, 0, 120)
+    )
+    sombra = sombra.filter(ImageFilter.GaussianBlur(6))
+    capa = Image.alpha_composite(capa, sombra)
+    dibujo = ImageDraw.Draw(capa)
     dibujo.rounded_rectangle(
-        (x0, y0, x0 + ancho_p, y0 + alto_p), radius=9, fill=(0, 0, 0, 190)
+        (x0, y0, x0 + ancho_p, y0 + alto_p),
+        radius=radio,
+        fill=(12, 12, 16, 205),
+        outline=(255, 255, 255, 55),
+        width=2,
     )
     dibujo.text(
-        (x0 + pad_x - caja[0], y0 + pad_y - caja[1]), texto, font=font, fill=(255, 255, 255, 255)
+        (x0 + pad_x - caja[0], y0 + pad_y - caja[1] - 1), texto, font=font, fill=(255, 255, 255, 255)
     )
     return Image.alpha_composite(img.convert("RGBA"), capa).convert("RGB")
 

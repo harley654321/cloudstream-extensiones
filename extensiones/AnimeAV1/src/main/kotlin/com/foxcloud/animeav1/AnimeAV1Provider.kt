@@ -186,6 +186,22 @@ class AnimeAV1Provider : MainAPI() {
             m.groupValues[2].toIntOrNull()?.let { it to fixUrl(href) }
         }.distinctBy { it.first }.sortedBy { it.first }
 
+        // Miniaturas por episodio: el CDN sirve screenshots/<id>/<cap>.jpg.
+        // Si la serie no las tiene se usa su frame (thumbnails/<id>.jpg) y, en
+        // el peor caso, la portada, para que ninguna tarjeta quede vacia.
+        val serieId = idDeImagen(poster)
+        val marcoSerie = serieId?.let { "$CDN/thumbnails/$it.jpg" }
+        val primerCapitulo = episodios.firstOrNull()?.first
+        val hayCapturas = serieId != null && primerCapitulo != null &&
+            existeImagen("$CDN/screenshots/$serieId/$primerCapitulo.jpg")
+        val hayMarco = !hayCapturas && marcoSerie != null && existeImagen(marcoSerie)
+
+        fun posterDeCapitulo(numero: Int): String? = when {
+            serieId != null && hayCapturas -> "$CDN/screenshots/$serieId/$numero.jpg"
+            hayMarco -> marcoSerie
+            else -> poster
+        }
+
         // Ficha sin episodios (proximamente): nunca inventar una URL de play.
         if (episodios.isEmpty()) {
             return newAnimeLoadResponse(titulo, url, tipo) {
@@ -219,6 +235,7 @@ class AnimeAV1Provider : MainAPI() {
                     newEpisode(enlace) {
                         this.episode = numero
                         this.name = "Episodio $numero"
+                        this.posterUrl = posterDeCapitulo(numero)
                     }
                 }
             )
@@ -337,6 +354,10 @@ class AnimeAV1Provider : MainAPI() {
             .minByOrNull { it.text().length }
         return etiqueta?.closest("section")
     }
+
+    /** El CDN responde 403 cuando la imagen no existe. */
+    private suspend fun existeImagen(url: String): Boolean =
+        runCatching { app.get(url).isSuccessful }.getOrDefault(false)
 
     private fun idDeImagen(url: String?): String? =
         url?.let { idImagenRegex.find(it)?.groupValues?.get(1) }
