@@ -1,8 +1,8 @@
 {
   "repo": "https://github.com/harley654321/cloudstream-extensiones",
-  "generado": "2026-11-10T22:51:23Z",
+  "generado": "2026-11-10T22:05:32Z",
   "api": "CloudStream 4.9.1",
-  "total": 3,
+  "total": 2,
   "extensiones": [
     {
       "nombre": "AnimeAV1",
@@ -22,24 +22,6 @@
       "bytes": 27642,
       "hash": "sha256-a58c97e43e91e0822b82ce9d0e265cf558014487a6c879da8067c029bfdc20ad",
       "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/AnimeAV1-v7.cs3"
-    },
-    {
-      "nombre": "Cinecalidad",
-      "interno": "Cinecalidad",
-      "version": 2,
-      "status": 1,
-      "autores": [
-        "harley654321"
-      ],
-      "descripcion": "Cinecalidad: peliculas y series en latino con estrenos, generos y servidores Vimeos",
-      "idioma": "es",
-      "tipos": [
-        "Movie",
-        "TvSeries"
-      ],
-      "bytes": 19764,
-      "hash": "sha256-4dddcf2a36e745424d02d3f2e50310d30a291385096f4bd226924d2988cfff02",
-      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/Cinecalidad-v2.cs3"
     },
     {
       "nombre": "PlantillaProvider",

@@ -17,7 +17,6 @@ import com.lagradost.cloudstream3.newTvSeriesLoadResponse
 import com.lagradost.cloudstream3.newTvSeriesSearchResponse
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
-import com.lagradost.cloudstream3.utils.M3u8Helper
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.getAndUnpack
 import com.lagradost.cloudstream3.utils.loadExtractor
@@ -65,15 +64,25 @@ class CinecalidadProvider : MainAPI() {
     // ---------------------------------------------------------------- portada
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val doc = app.get(listUrl(request.data, page)).document
-        val items = doc.cards()
-        // El sitio marca la paginacion con .wp-pagenavi ("Pagina 1 de 871").
-        // Tomamos el mayor numero enlazado y lo comparamos con la pagina actual.
-        val ultima = doc.select(".wp-pagenavi a[href], .pagination a[href]")
-            .mapNotNull { a -> paginaRegex.find(a.attr("href"))?.groupValues?.get(1)?.toIntOrNull() }
-            .maxOrNull() ?: page
-        return newHomePageResponse(request.name, items, ultima > page)
+        // La app pide "la pagina N de la fila"; aqui N son lotes de paginas del sitio,
+        // asi la fila llega larga de una vez y al deslizar sigue cargando sin cortarse.
+        val porLote = 4
+        val desde = (page - 1) * porLote + 1
+        val hasta = desde + porLote - 1
+
+        val documentos = (desde..hasta).mapNotNull { p ->
+            runCatching { app.get(listUrl(request.data, p)).document }.getOrNull()
+        }
+
+        val items = documentos.flatMap { it.cards() }.distinctBy { it.url }
+        val ultima = documentos.mapNotNull { maxPagina(it) }.maxOrNull() ?: hasta
+        return newHomePageResponse(request.name, items, ultima > hasta)
     }
+
+    private fun maxPagina(doc: Document): Int? =
+        doc.select(".wp-pagenavi a[href], .pagination a[href]")
+            .mapNotNull { a -> paginaRegex.find(a.attr("href"))?.groupValues?.get(1)?.toIntOrNull() }
+            .maxOrNull()
 
     private fun listUrl(kind: String, page: Int): String {
         val base = when (kind) {
@@ -192,28 +201,20 @@ class CinecalidadProvider : MainAPI() {
         }
 
         enlaces.forEach { hls ->
-            val generados = M3u8Helper.generateM3u8(
-                source = name,
-                streamUrl = hls,
-                referer = "https://vimeos.net/",
-                headers = mapOf("Referer" to "https://vimeos.net/"),
-                name = "$name Vimeos"
+            // Se entrega el master completo: lleva las pistas de audio
+            // (#EXT-X-MEDIA ... NAME="Latine" DEFAULT=YES) y el ABR elige la calidad.
+            // Si se parte por variante se pierde el grupo de audio y suena el original.
+            callback(
+                newExtractorLink(
+                    source = this.name,
+                    name = "$name Latino",
+                    url = hls,
+                    type = ExtractorLinkType.M3U8
+                ) {
+                    this.referer = "https://vimeos.net/"
+                    this.quality = Qualities.Unknown.value
+                }
             )
-            if (generados.isEmpty()) {
-                callback(
-                    newExtractorLink(
-                        source = this.name,
-                        name = "$name Vimeos",
-                        url = hls,
-                        type = ExtractorLinkType.M3U8
-                    ) {
-                        this.referer = "https://vimeos.net/"
-                        this.quality = Qualities.Unknown.value
-                    }
-                )
-            } else {
-                generados.forEach(callback)
-            }
         }
         return true
     }

@@ -21,26 +21,6 @@
     "name": "AnimeAV1"
   },
   {
-    "fileHash": "sha256-4dddcf2a36e745424d02d3f2e50310d30a291385096f4bd226924d2988cfff02",
-    "apiVersion": 1,
-    "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",
-    "fileSize": 19764,
-    "status": 1,
-    "language": "es",
-    "authors": [
-      "harley654321"
-    ],
-    "tvTypes": [
-      "Movie",
-      "TvSeries"
-    ],
-    "version": 2,
-    "internalName": "Cinecalidad",
-    "description": "Cinecalidad: peliculas y series en latino con estrenos, generos y servidores Vimeos",
-    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/Cinecalidad-v2.cs3",
-    "name": "Cinecalidad"
-  },
-  {
     "fileHash": "sha256-66dbcc061da754ed8dcb5c5eb20cebd1cbb46abd30ff9fb7c93e6448a748e511",
     "apiVersion": 1,
     "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",

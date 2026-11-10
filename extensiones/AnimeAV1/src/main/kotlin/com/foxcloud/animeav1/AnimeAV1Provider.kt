@@ -290,7 +290,7 @@ class AnimeAV1Provider : MainAPI() {
                     callback(
                         newExtractorLink(
                             source = this.name,
-                            name = "$name HLS",
+                            name = "SUB \u00b7 $name HLS",
                             url = hls,
                             type = ExtractorLinkType.M3U8
                         ) {
@@ -301,11 +301,31 @@ class AnimeAV1Provider : MainAPI() {
                 }
             }
 
-        // 2) Servidores alternativos del __data.json del episodio
-        servidores(data).forEach { (servidor, enlace) ->
+        // 2) Servidores alternativos del __data.json del episodio.
+        // Cada uno va etiquetado con su idioma y ordenados SUB primero, asi lo
+        // primero que suena es el subtitulado al espanol y el doblaje queda a mano.
+        servidores(data).forEach { (idioma, servidor, enlace) ->
             if (servidor.equals("HLS", ignoreCase = true)) return@forEach
             if (!emitidos.add(enlace)) return@forEach
-            loadExtractor(enlace, "$mainUrl/", subtitleCallback, callback)
+            val prefijo = if (idioma.isBlank()) "" else "$idioma \u00b7 "
+            loadExtractor(enlace, "$mainUrl/", subtitleCallback) { video ->
+                // Se reemite el enlace con el idioma delante. Se construye directo
+                // porque newExtractorLink es suspend y aqui no hay corrutina.
+                @Suppress("DEPRECATION")
+                callback(
+                    ExtractorLink(
+                        source = video.source,
+                        name = prefijo + video.name,
+                        url = video.url,
+                        referer = video.referer,
+                        quality = video.quality,
+                        headers = video.headers,
+                        extractorData = video.extractorData,
+                        type = video.type,
+                        audioTracks = video.audioTracks
+                    )
+                )
+            }
         }
 
         return emitidos.isNotEmpty()
@@ -315,7 +335,7 @@ class AnimeAV1Provider : MainAPI() {
      * Lee `__data.json` del episodio. SvelteKit serializa con devalue: un array
      * de valores donde cada entero dentro de un objeto es un indice a ese array.
      */
-    private suspend fun servidores(episodioUrl: String): List<Pair<String, String>> {
+    private suspend fun servidores(episodioUrl: String): List<Triple<String, String, String>> {
         val texto = runCatching { app.get("$episodioUrl/__data.json").text }.getOrNull() ?: return emptyList()
         val raiz = runCatching { mapper.readTree(texto) }.getOrNull() ?: return emptyList()
 
@@ -326,23 +346,77 @@ class AnimeAV1Provider : MainAPI() {
         }
         val arr = valores ?: return emptyList()
 
-        fun resolver(nodo: JsonNode?): String? = when {
+        fun texto(nodo: JsonNode?): String? = when {
             nodo == null -> null
             nodo.isTextual -> nodo.asText()
             nodo.isInt -> arr.get(nodo.asInt())?.asText()
             else -> null
         }
 
-        val salida = mutableListOf<Pair<String, String>>()
+        fun resolverNodo(nodo: JsonNode?): JsonNode? = when {
+            nodo == null -> null
+            nodo.isInt -> arr.get(nodo.asInt())
+            else -> nodo
+        }
+
+        // El JSON trae dos grupos con forma {"SUB": [servidores]}: primero los
+        // reproductores y despues los de descarga. Se distinguen por el host.
+        fun grupoDeServidores(objeto: JsonNode?): List<Triple<String, String, String>> {
+            if (objeto == null || !objeto.isObject) return emptyList()
+            val claves = objeto.fieldNames().asSequence().toList()
+            if (claves.isEmpty() || claves.size > 8) return emptyList()
+            if (claves.any { it.uppercase() !in IDIOMAS }) return emptyList()
+
+            val salida = mutableListOf<Triple<String, String, String>>()
+            for (idioma in claves) {
+                val lista = resolverNodo(objeto.get(idioma)) ?: continue
+                if (!lista.isArray) continue
+                for (elemento in lista) {
+                    val obj = resolverNodo(elemento) ?: continue
+                    if (!obj.isObject) continue
+                    val servidor = texto(obj.get("server")) ?: continue
+                    val enlace = texto(obj.get("url") ?: obj.get("link") ?: obj.get("embed")) ?: continue
+                    if (enlace.startsWith("http")) {
+                        salida.add(Triple(idioma.uppercase(), servidor, enlace))
+                    }
+                }
+            }
+            return salida
+        }
+
+        val grupos = arr.map { grupoDeServidores(it) }.filter { it.isNotEmpty() }
+        val elegido = grupos.firstOrNull { grupo ->
+            grupo.any { REPRODUCTORES.contains(it.second.trim().lowercase()) }
+        } ?: grupos.firstOrNull()
+
+        if (elegido != null && elegido.isNotEmpty()) {
+            return elegido.distinctBy { it.third }.sortedBy { entrada ->
+                val i = ORDEN_IDIOMAS.indexOf(entrada.first)
+                if (i >= 0) i else ORDEN_IDIOMAS.size
+            }
+        }
+
+        // Respaldo: cualquier objeto suelto {server, url} del episodio, sin idioma.
+        val sueltos = mutableListOf<Triple<String, String, String>>()
         arr.forEach { nodo ->
             if (!nodo.isObject) return@forEach
-            val servidor = resolver(nodo.get("server")) ?: return@forEach
-            val enlace = resolver(nodo.get("url") ?: nodo.get("link") ?: nodo.get("embed")) ?: return@forEach
-            if (!enlace.startsWith("http")) return@forEach
-            salida.add(servidor to enlace)
+            val servidor = texto(nodo.get("server")) ?: return@forEach
+            val enlace = texto(nodo.get("url") ?: nodo.get("link") ?: nodo.get("embed")) ?: return@forEach
+            if (enlace.startsWith("http")) sueltos.add(Triple("", servidor, enlace))
         }
-        return salida.distinctBy { it.second }
+        return sueltos.distinctBy { it.third }
     }
+
+    /** Idiomas que etiqueta el sitio; el primero manda (SUB = subtitulado al espanol). */
+    private val ORDEN_IDIOMAS = listOf("SUB", "LAT", "CAST", "ESP", "DUB")
+    private val IDIOMAS = ORDEN_IDIOMAS.toSet() + setOf("JAP", "RAW", "VO")
+
+    /** Hosts que son reproductor, para no confundir ese grupo con el de descargas. */
+    private val REPRODUCTORES = setOf(
+        "hls", "voe", "byse", "mp4upload", "upnshare", "streamtape", "doodstream",
+        "filemoon", "mixdrop", "vidhide", "lulu", "netu", "fembed", "streamwish",
+        "vimeos", "ok.ru", "yandex", "pixeldrain"
+    )
 
     // ---------------------------------------------------------------- helpers
 
