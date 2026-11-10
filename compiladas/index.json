@@ -1,27 +1,27 @@
 {
   "repo": "https://github.com/harley654321/cloudstream-extensiones",
-  "generado": "2026-11-10T20:24:26Z",
+  "generado": "2026-11-10T20:51:33Z",
   "api": "CloudStream 4.9.1",
   "total": 2,
   "extensiones": [
     {
       "nombre": "AnimeAV1",
       "interno": "AnimeAV1",
-      "version": 1,
+      "version": 2,
       "status": 1,
       "autores": [
         "harley654321"
       ],
-      "descripcion": "AnimeAV1: catalogo de anime en espanol. Recientes, agregados, en emision, peliculas e isekai",
+      "descripcion": "AnimeAV1: catalogo de anime en espanol. Recientes, agregados, populares, mejor puntuados, en emision y peliculas",
       "idioma": "es",
       "tipos": [
         "Anime",
         "AnimeMovie",
         "OVA"
       ],
-      "bytes": 19772,
-      "hash": "sha256-6d0189537789828592a19f868e0bb043a437e2dc6ff6bf71da764a2726256f93",
-      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/AnimeAV1-v1.cs3"
+      "bytes": 23636,
+      "hash": "sha256-a734fff92aa694f11b6f6885d182571fab93326acaee7c4be5759047745fdf55",
+      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/AnimeAV1-v2.cs3"
     },
     {
       "nombre": "PlantillaProvider",
