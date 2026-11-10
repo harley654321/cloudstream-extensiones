@@ -55,7 +55,11 @@ class CinecalidadProvider : MainAPI() {
         "animacion" to "Animacion"
     )
 
+    private val paginaRegex = Regex("""/page/(\d+)/?""")
+
     private val fichaRegex = Regex("""/(ver-pelicula|ver-serie)/[a-z0-9-]+/?$""")
+    private fun anioActual(): Int = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+
     private val m3u8Regex = Regex("""file\s*:\s*["'](https?://[^"']+\.m3u8[^"']*)["']""")
 
     // ---------------------------------------------------------------- portada
@@ -63,15 +67,19 @@ class CinecalidadProvider : MainAPI() {
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val doc = app.get(listUrl(request.data, page)).document
         val items = doc.cards()
-        val hasNext = doc.selectFirst("a[href*='page/${page + 1}']") != null
-        return newHomePageResponse(request.name, items, hasNext)
+        // El sitio marca la paginacion con .wp-pagenavi ("Pagina 1 de 871").
+        // Tomamos el mayor numero enlazado y lo comparamos con la pagina actual.
+        val ultima = doc.select(".wp-pagenavi a[href], .pagination a[href]")
+            .mapNotNull { a -> paginaRegex.find(a.attr("href"))?.groupValues?.get(1)?.toIntOrNull() }
+            .maxOrNull() ?: page
+        return newHomePageResponse(request.name, items, ultima > page)
     }
 
     private fun listUrl(kind: String, page: Int): String {
         val base = when (kind) {
             "movies" -> "$mainUrl/"
             "series" -> "$mainUrl/ver-serie/"
-            "estrenos" -> "$mainUrl/fecha-de-lanzamiento/2026/"
+            "estrenos" -> "$mainUrl/fecha-de-lanzamiento/${anioActual()}/"
             else -> "$mainUrl/genero-de-la-pelicula/$kind/"
         }
         return if (page <= 1) base else "\${base}page/\$page/"
@@ -216,17 +224,19 @@ class CinecalidadProvider : MainAPI() {
         val vistos = mutableSetOf<String>()
         val salida = mutableListOf<SearchResponse>()
         this.select("article.item").forEach { articulo ->
-            val enlace = articulo.selectFirst("a[href]") ?: return@forEach
-            val href = enlace.attr("href")
-            if (!fichaRegex.containsMatchIn(href)) return@forEach
+            val href = articulo.select("a[href]")
+                .map { it.attr("href") }
+                .firstOrNull { fichaRegex.containsMatchIn(it) } ?: return@forEach
             if (!vistos.add(href)) return@forEach
 
             val alt = articulo.selectFirst("img[alt]")?.attr("alt")?.trim()
             val titulo = alt?.takeIf { it.isNotEmpty() && it != "promo" && it != "poster" }
-                ?: articulo.selectFirst(".in_title")?.text()?.trim()
+                ?: articulo.selectFirst(".in_title")?.text()?.trim()?.takeIf { it.isNotEmpty() }
+                ?: articulo.selectFirst("h3")?.text()?.trim()?.takeIf { it.isNotEmpty() }
                 ?: return@forEach
-            val poster = articulo.selectFirst("img[data-src]")?.attr("data-src")
-                ?: articulo.selectFirst("img[src^='https://image']")?.attr("src")
+            val poster = (articulo.selectFirst("img[data-src]")?.attr("data-src")
+                ?: articulo.selectFirst("img[src^='https://image']")?.attr("src"))
+                ?.takeIf { it.startsWith("http") }
 
             salida.add(
                 if (href.contains("/ver-serie/")) {

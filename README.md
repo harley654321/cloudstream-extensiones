@@ -20,9 +20,11 @@ Ese `repo.json` apunta a `compiladas/plugins.json`, que es la lista que lee la a
 extensiones/            codigo fuente: una carpeta por extension
   PlantillaProvider/      (nombre de carpeta = nombre interno del plugin)
   AnimeAV1/               extension de animeav1.com (ver docs/ANIMEAV1.md)
+  Cinecalidad/            extension de cinecalidad.am (ver docs/CINECALIDAD.md)
 compiladas/             lo que publica la fabrica (no se toca a mano)
   PlantillaProvider-v3.cs3  plugin compilado (la version va en el nombre: cada
-  AnimeAV1-v1.cs3           publicacion estrena URL y el CDN no sirve cache vieja)
+  AnimeAV1-v7.cs3           publicacion estrena URL y el CDN no sirve cache vieja)
+  Cinecalidad-v2.cs3
   plugins.json            indice que lee CloudStream
   index.json              resumen legible de la ultima compilacion
 scripts/fabrica.py      versiona y publica
