@@ -7,6 +7,7 @@ import com.lagradost.cloudstream3.MainPageRequest
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.TvType
+import com.lagradost.cloudstream3.amap
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.mainPageOf
 import com.lagradost.cloudstream3.newEpisode
@@ -70,9 +71,10 @@ class CinecalidadProvider : MainAPI() {
         val desde = (page - 1) * porLote + 1
         val hasta = desde + porLote - 1
 
-        val documentos = (desde..hasta).mapNotNull { p ->
+        // En paralelo: 4 paginas del sitio por peticion de fila.
+        val documentos = (desde..hasta).toList().amap { p ->
             runCatching { app.get(listUrl(request.data, p)).document }.getOrNull()
-        }
+        }.filterNotNull()
 
         val items = documentos.flatMap { it.cards() }.distinctBy { it.url }
         val ultima = documentos.mapNotNull { maxPagina(it) }.maxOrNull() ?: hasta
