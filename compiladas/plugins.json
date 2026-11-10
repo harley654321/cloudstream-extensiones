@@ -1,9 +1,9 @@
 [
   {
-    "fileHash": "sha256-66dbcc061da754ed8dcb5c5eb20cebd1cbb46abd30ff9fb7c93e6448a748e511",
+    "fileHash": "sha256-3b915a8937416b3e25916469fd68b7347790e2cb02376aa1d173ab9cd4edba14",
     "apiVersion": 1,
     "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",
-    "fileSize": 8858,
+    "fileSize": 8857,
     "status": 1,
     "language": "es",
     "authors": [
@@ -12,7 +12,7 @@
     "tvTypes": [
       "Movie"
     ],
-    "version": 3,
+    "version": 1,
     "internalName": "PlantillaProvider",
     "description": "Plantilla de demostracion de la fabrica: contenido abierto de la Blender Foundation",
     "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/PlantillaProvider.cs3",

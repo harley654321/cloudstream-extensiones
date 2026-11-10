@@ -173,10 +173,22 @@ def publicar() -> int:
             print(f"  AVISO: no se encontro {origen}, se omite")
             continue
 
-        destino = PUBLICADAS / f"{nombre}.cs3"
+        # Nombre versionado: cada version estrena URL, asi el CDN de
+        # raw.githubusercontent no sirve un .cs3 viejo con el hash nuevo.
+        version = int(entrada.get("version") or 0)
+        destino = PUBLICADAS / f"{nombre}-v{version}.cs3"
         shutil.copy2(origen, destino)
 
-        entrada["url"] = f"{base_raw}/{nombre}.cs3"
+        # Borrar artefactos anteriores del mismo plugin
+        for viejo in PUBLICADAS.glob("*.cs3"):
+            if viejo.name == destino.name:
+                continue
+            base = viejo.stem
+            if base == nombre or base.startswith(nombre + "-v"):
+                viejo.unlink()
+                print("  version anterior eliminada:", viejo.name)
+
+        entrada["url"] = f"{base_raw}/{destino.name}"
         entrada["repositoryUrl"] = f"https://github.com/{repo_slug()}"
         entrada["fileSize"] = destino.stat().st_size
         entrada["fileHash"] = sha256_archivo(destino)
@@ -190,7 +202,10 @@ def publicar() -> int:
     # Limpieza de .cs3 de extensiones que ya no existen
     vigentes = {str(e.get("internalName")) for e in publicadas}
     for f in PUBLICADAS.glob("*.cs3"):
-        if f.stem not in vigentes:
+        base = f.stem
+        if "-v" in base:
+            base = base.rsplit("-v", 1)[0]
+        if base not in vigentes:
             f.unlink()
             print("  eliminada:", f.name)
 
