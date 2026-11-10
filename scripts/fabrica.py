@@ -114,21 +114,24 @@ def preparar() -> int:
 
     print("== Versionado automatico ==")
     for carpeta in extensiones():
-        h = huella(carpeta)
+        # Hash ANTES de tocar el fichero: sirve para detectar cambios reales.
+        h_antes = huella(carpeta)
         previo = plugins.get(carpeta.name)
         actual = leer_version(carpeta)
 
         if previo is None:
             nueva = max(actual, 1)
-        elif previo.get("hash") != h:
+        elif previo.get("hash") != h_antes:
             nueva = max(actual, int(previo.get("version", 1))) + 1
         else:
             nueva = max(actual, int(previo.get("version", 1)))
 
         escribir_version(carpeta, nueva)
-        plugins[carpeta.name] = {"version": nueva, "hash": h}
+        # El hash se guarda DESPUES de escribir la version, para que la siguiente
+        # ejecucion no vea su propio cambio de version como codigo nuevo.
+        plugins[carpeta.name] = {"version": nueva, "hash": huella(carpeta)}
 
-        hay_cambio = previo is None or previo.get("hash") != h
+        hay_cambio = previo is None or previo.get("hash") != h_antes
         if hay_cambio:
             cambiadas.append(carpeta.name)
         print(f"  {carpeta.name:<32} v{nueva}{'   <- cambios' if hay_cambio else ''}")

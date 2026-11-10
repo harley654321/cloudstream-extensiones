@@ -1,8 +1,8 @@
 {
   "plugins": {
     "PlantillaProvider": {
-      "version": 2,
-      "hash": "272656e3b5ce517f1cf12bf1a1e25499fef2be72a806f6515fd66dee4e87d64b"
+      "version": 3,
+      "hash": "8b6ff053d0e934064aebb957c2c1251d8b4a938aa45e27bba6f17132d9df83d2"
     }
   }
 }
