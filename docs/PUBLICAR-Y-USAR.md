@@ -25,6 +25,13 @@ El `fileHash` de `plugins.json` debe coincidir con:
 curl -sL https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/PlantillaProvider.cs3 | sha256sum
 ```
 
+## Nota sobre el CDN
+
+Cada publicacion crea `compiladas/<Nombre>-v<version>.cs3`. La version va en el
+nombre justo para que `raw.githubusercontent.com` (que cachea unos minutos) no
+pueda servir un fichero viejo con el hash nuevo: al cambiar la URL no hay
+colision. Las versiones anteriores se borran en cada publicacion.
+
 ## 3. Actualizar una extension
 
 Edita su codigo, push a `main` y espera a que termine el workflow. La fabrica
