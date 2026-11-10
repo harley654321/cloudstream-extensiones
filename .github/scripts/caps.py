@@ -102,7 +102,7 @@ def componer(portada: bytes, cap: str) -> Image.Image:
     ancho_p = ancho_t + pad_x * 2
     alto_p = alto_t + pad_y * 2
     margen = 20  # despegado del borde
-    x0 = ANCHO - margen - ancho_p
+    x0 = margen
     y0 = ALTO - margen - alto_p
     radio = 15
 

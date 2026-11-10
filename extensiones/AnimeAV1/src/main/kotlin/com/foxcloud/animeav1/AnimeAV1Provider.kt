@@ -73,26 +73,15 @@ class AnimeAV1Provider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         return when (request.data) {
-            "recientes" -> {
-                // La portada solo pinta 20 episodios y no hay listado paginado de
-                // episodios, asi que el resto de la fila sigue el orden del
-                // catalogo (que es el mismo "ultima actualizacion").
-                val desde = if (page == 1) 2 else (page - 1) * BLOQUES + 2
-                val (extra, hayMas) = catalogoBloque("", desde)
-                val base = if (page == 1) bloqueRecientes() else emptyList()
-                newHomePageResponse(request.name, (base + extra).distinctBy { it.url }, hayMas)
-            }
+            // Estas dos filas son bloques de la portada y el sitio publica
+            // exactamente 20 tarjetas en cada uno, sin listado paginado. Aqui
+            // no se rellena con nada: o es un episodio recien actualizado, o no
+            // entra en la fila.
+            "recientes" -> newHomePageResponse(request.name, bloqueRecientes(), false)
+            "agregados" -> newHomePageResponse(request.name, bloqueAgregados(), false)
 
-            "agregados" -> {
-                // Su bloque de portada tambien se corta en 20, asi que la fila
-                // sigue con el catalogo, pero desde mas abajo para no repetir
-                // los mismos titulos que "Capitulos recientes".
-                val desde = if (page == 1) 2 + BLOQUES else (page - 1) * BLOQUES + 2 + BLOQUES
-                val (extra, hayMas) = catalogoBloque("", desde)
-                val base = if (page == 1) bloqueAgregados() else emptyList()
-                newHomePageResponse(request.name, (base + extra).distinctBy { it.url }, hayMas)
-            }
-
+            // Estas si son listas del catalogo con su mismo filtro y su mismo
+            // orden, asi que la pagina 2, 3... sigue siendo la misma lista.
             else -> {
                 val desde = (page - 1) * BLOQUES + 1
                 val (items, hayMas) = catalogoBloque(request.data, desde)
