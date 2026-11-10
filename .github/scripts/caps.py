@@ -8,7 +8,12 @@ portada 2:3 + etiqueta con el numero abajo a la derecha.
 
 Salida:
   caps/<id>-<cap>.jpg   portada compuesta
-  caps/index.json       {"<id>-<cap>": "titulo", ...} con lo disponible
+  caps/index.json       {"_diseno": N, "<id>-<cap>": "titulo", ...}
+
+El campo _diseno es la clave para que un rediseno no quede a medias: si no
+coincide con DISENO, se borran todas las portadas y se rehacen. Sin eso el
+script salta los ficheros ya existentes y solo cambiaria la de los capitulos
+nuevos. DISENO y CAPS_VER del provider tienen que ir siempre iguales.
 """
 
 import io
@@ -26,6 +31,7 @@ AQUI = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 SALIDA = os.path.join(AQUI, "caps")
 
 ANCHO, ALTO = 360, 540
+DISENO = 2
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
 
 
@@ -141,7 +147,23 @@ def main() -> int:
         return 1
 
     os.makedirs(SALIDA, exist_ok=True)
-    indice, creados, fallos = {}, 0, 0
+
+    # Si el diseno cambio, se tira todo lo viejo y se rehace entero.
+    ruta_indice = os.path.join(SALIDA, "index.json")
+    anterior = {}
+    if os.path.exists(ruta_indice):
+        try:
+            with open(ruta_indice, encoding="utf-8") as fh:
+                anterior = json.load(fh)
+        except Exception:  # noqa: BLE001
+            anterior = {}
+    if anterior.get("_diseno") != DISENO:
+        for f in os.listdir(SALIDA):
+            if f.endswith(".jpg"):
+                os.remove(os.path.join(SALIDA, f))
+        print(f"diseno nuevo ({anterior.get('_diseno')} -> {DISENO}): se rehacen todas")
+
+    indice, creados, fallos = {"_diseno": DISENO}, 0, 0
     for it in items:
         nombre = f"{it['id']}-{it['cap']}.jpg"
         indice[f"{it['id']}-{it['cap']}"] = it["titulo"]

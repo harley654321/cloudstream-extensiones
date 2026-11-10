@@ -350,7 +350,7 @@ class AnimeAV1Provider : MainAPI() {
         const val CDN = "https://cdn.animeav1.com"
         const val CAPS_BASE =
             "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/caps"
-        const val CAPS_TTL = 6 * 60 * 60 * 1000L
+        const val CAPS_TTL = 60 * 60 * 1000L
 
         /**
          * Se sube cuando cambia el diseno de las portadas compuestas. CloudStream
@@ -375,7 +375,7 @@ class AnimeAV1Provider : MainAPI() {
         capsCache?.let { if (ahora - capsCacheAt < CAPS_TTL) return it }
         val nuevo = runCatching {
             mapper.readTree(app.get("$CAPS_BASE/index.json?v=$CAPS_VER").text).fieldNames()
-                .asSequence().toSet()
+                .asSequence().filter { !it.startsWith("_") }.toSet()
         }.getOrNull()
         if (nuevo != null) {
             capsCache = nuevo
