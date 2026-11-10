@@ -1,9 +1,30 @@
 [
   {
-    "fileHash": "sha256-3b915a8937416b3e25916469fd68b7347790e2cb02376aa1d173ab9cd4edba14",
+    "fileHash": "sha256-6d0189537789828592a19f868e0bb043a437e2dc6ff6bf71da764a2726256f93",
     "apiVersion": 1,
     "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",
-    "fileSize": 8857,
+    "fileSize": 19772,
+    "status": 1,
+    "language": "es",
+    "authors": [
+      "harley654321"
+    ],
+    "tvTypes": [
+      "Anime",
+      "AnimeMovie",
+      "OVA"
+    ],
+    "version": 1,
+    "internalName": "AnimeAV1",
+    "description": "AnimeAV1: catalogo de anime en espanol. Recientes, agregados, en emision, peliculas e isekai",
+    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/AnimeAV1-v1.cs3",
+    "name": "AnimeAV1"
+  },
+  {
+    "fileHash": "sha256-66dbcc061da754ed8dcb5c5eb20cebd1cbb46abd30ff9fb7c93e6448a748e511",
+    "apiVersion": 1,
+    "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",
+    "fileSize": 8858,
     "status": 1,
     "language": "es",
     "authors": [
@@ -12,10 +33,10 @@
     "tvTypes": [
       "Movie"
     ],
-    "version": 1,
+    "version": 3,
     "internalName": "PlantillaProvider",
     "description": "Plantilla de demostracion de la fabrica: contenido abierto de la Blender Foundation",
-    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/PlantillaProvider.cs3",
+    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/PlantillaProvider-v3.cs3",
     "name": "PlantillaProvider"
   }
 ]
