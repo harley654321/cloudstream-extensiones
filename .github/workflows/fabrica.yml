@@ -38,8 +38,27 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      # android-actions/setup-android@v3 falla en los runners actuales porque
+      # intenta instalar el paquete "tools", que ya no existe en el indice de
+      # Google. Instalamos lo justo con sdkmanager directamente.
       - name: Android SDK
-        uses: android-actions/setup-android@v3
+        run: |
+          set -uo pipefail
+          SDK="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          mkdir -p "$SDK"
+          SM="$(ls -d "$SDK"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1 || true)"
+          if [ -z "${SM:-}" ]; then
+            curl -sL -o /tmp/clt.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+            unzip -q /tmp/clt.zip -d /tmp/clt
+            mkdir -p "$SDK/cmdline-tools-manual"
+            cp -r /tmp/clt/cmdline-tools "$SDK/cmdline-tools-manual/latest"
+            SM="$SDK/cmdline-tools-manual/latest/bin/sdkmanager"
+          fi
+          yes | "$SM" --sdk_root="$SDK" --licenses > /dev/null 2>&1 || true
+          "$SM" --sdk_root="$SDK" "platform-tools" "platforms;android-35" "build-tools;35.0.0" > /dev/null
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "SDK listo en $SDK"
 
       - name: Cache de Gradle
         uses: gradle/actions/setup-gradle@v4
