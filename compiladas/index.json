@@ -1,13 +1,13 @@
 {
   "repo": "https://github.com/harley654321/cloudstream-extensiones",
-  "generado": "2026-11-10T21:18:10Z",
+  "generado": "2026-11-10T21:24:49Z",
   "api": "CloudStream 4.9.1",
   "total": 2,
   "extensiones": [
     {
       "nombre": "AnimeAV1",
       "interno": "AnimeAV1",
-      "version": 4,
+      "version": 5,
       "status": 1,
       "autores": [
         "harley654321"
@@ -19,9 +19,9 @@
         "AnimeMovie",
         "OVA"
       ],
-      "bytes": 28075,
-      "hash": "sha256-ac08210b343e94e6aca2d4ba5aa642d2236b0a2bfe1935a0063e4fb2b4f36f84",
-      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/AnimeAV1-v4.cs3"
+      "bytes": 27467,
+      "hash": "sha256-8f2a6ab074dd56903d2a876ada080743bfacb5f6f033d81d618b6226c5e02ba8",
+      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/AnimeAV1-v5.cs3"
     },
     {
       "nombre": "PlantillaProvider",
