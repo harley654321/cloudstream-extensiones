@@ -11,6 +11,7 @@ on:
     paths-ignore:
       - "compiladas/**"
       - ".factory/**"
+      - "caps/**"
       - "**/*.md"
   workflow_dispatch:
 

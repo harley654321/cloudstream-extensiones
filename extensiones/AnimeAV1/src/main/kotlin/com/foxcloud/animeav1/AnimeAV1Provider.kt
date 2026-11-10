@@ -6,11 +6,11 @@ import com.lagradost.cloudstream3.DubStatus
 import com.lagradost.cloudstream3.HomePageResponse
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
-import com.lagradost.cloudstream3.MainPageData
 import com.lagradost.cloudstream3.MainPageRequest
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.TvType
+import com.lagradost.cloudstream3.addEpisodes
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.fixUrl
 import com.lagradost.cloudstream3.mainPageOf
@@ -19,20 +19,27 @@ import com.lagradost.cloudstream3.newAnimeSearchResponse
 import com.lagradost.cloudstream3.newEpisode
 import com.lagradost.cloudstream3.newHomePageResponse
 import com.lagradost.cloudstream3.newMovieLoadResponse
-import com.lagradost.cloudstream3.addEpisodes
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.loadExtractor
 import com.lagradost.cloudstream3.utils.newExtractorLink
+import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
 
 /**
  * AnimeAV1 (animeav1.com) - catalogo de anime en espanol.
  *
- * La web es SvelteKit con render en servidor, asi que todo el contenido util
- * esta en el HTML y se parsea con Jsoup. Los servidores del reproductor viven
- * en el endpoint `__data.json` de cada episodio (formato devalue de SvelteKit:
- * un array donde los enteros son referencias a otros indices).
+ * La web es SvelteKit con render en servidor: todo el contenido util esta en
+ * el HTML. Los servidores de cada episodio viven ademas en su `__data.json`
+ * (formato devalue de SvelteKit: un array donde los enteros son indices).
+ *
+ * Nota sobre imagenes: los `backdrops/<id>.jpg` del CDN devuelven 403 en
+ * muchisimas fichas (la web los pinta igual, pero el fichero no existe), asi
+ * que aqui solo se usan `covers/<id>.jpg` y `thumbnails/<id>.jpg`, que si
+ * responden siempre. CloudStream no dibuja capas sobre la portada, por eso el
+ * numero de capitulo de "Capitulos recientes" llega ya compuesto en la imagen
+ * (carpeta caps/ del repositorio).
  */
 class AnimeAV1Provider : MainAPI() {
     override var mainUrl = "https://animeav1.com"
@@ -44,39 +51,31 @@ class AnimeAV1Provider : MainAPI() {
     override val hasQuickSearch = false
     override val hasDownloadSupport = false
 
-    // Secciones de portada: todas sirven listas distintas de la propia web.
+    // Todas las secciones son listas reales y distintas de la propia web.
     override val mainPage = mainPageOf(
-        "recientes" to "Recientes",
+        "recientes" to "Capitulos recientes",
         "agregados" to "Recien agregados",
+        "order=popular" to "Populares",
+        "order=score" to "Mejor puntuados",
         "status=emision" to "En emision",
-        "category=pelicula" to "Peliculas",
-        "genre=isekai" to "Isekai"
+        "category=pelicula" to "Peliculas"
     )
 
     private val mapper = ObjectMapper()
     private val yearRegex = Regex("(19|20)\\d{2}")
+    private val numeroRegex = Regex("(\\d+)")
+    private val idImagenRegex = Regex("/(\\d+)\\.jpg")
     private val episodeHrefRegex = Regex("/media/([^/]+)/(\\d+)$")
     private val seriesHrefRegex = Regex("^(https?://[^/]+)?(/media/[^/?#]+)")
 
     // ---------------------------------------------------------------- portada
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val data = request.data
-        return when (data) {
-            "recientes" -> newHomePageResponse(
-                request.name,
-                homeSection("recientemente actualizado", true),
-                false
-            )
-
-            "agregados" -> newHomePageResponse(
-                request.name,
-                homeSection("recientemente agregados", false),
-                false
-            )
-
+        return when (request.data) {
+            "recientes" -> newHomePageResponse(request.name, seccionRecientes(), false)
+            "agregados" -> newHomePageResponse(request.name, seccionAgregados(), false)
             else -> {
-                val doc = app.get("$mainUrl/catalogo?$data&page=$page").document
+                val doc = app.get("$mainUrl/catalogo?${request.data}&page=$page").document
                 val items = doc.cards()
                 val hasNext = doc.selectFirst("a[href*=page=${page + 1}]") != null
                 newHomePageResponse(request.name, items, hasNext)
@@ -84,11 +83,18 @@ class AnimeAV1Provider : MainAPI() {
         }
     }
 
-    /** Extrae un bloque de la portada localizandolo por el subtitulo de la seccion. */
-    private suspend fun homeSection(subtitulo: String, esEpisodio: Boolean): List<SearchResponse> {
+    /**
+     * "Episodios / Recientemente actualizado". Cada tarjeta es un episodio: se
+     * agrupa por serie (la primera aparicion es el capitulo mas nuevo) y la
+     * portada es la compuesta con el numero del capitulo; si esa imagen aun no
+     * existe se usa la portada limpia de la obra.
+     */
+    private suspend fun seccionRecientes(): List<SearchResponse> {
         val doc = app.get(mainUrl).document
-        val etiqueta = doc.select("p").firstOrNull { it.text().contains(subtitulo, ignoreCase = true) }
-        val seccion = etiqueta?.closest("section") ?: return emptyList()
+        val seccion = seccionPorTitulo(doc, "recientemente actualizado")
+            ?: doc.select("section").firstOrNull { it.selectFirst("a[href^=/media/]") != null }
+            ?: return emptyList()
+        val caps = capsDisponibles()
 
         val vistos = mutableSetOf<String>()
         val salida = mutableListOf<SearchResponse>()
@@ -97,13 +103,47 @@ class AnimeAV1Provider : MainAPI() {
             val limpio = urlDeSerie(fixUrl(enlace.attr("href"))) ?: return@forEach
             if (!vistos.add(limpio)) return@forEach
 
-            val titulo = articulo.selectFirst("header div, header h3, h3")?.text()?.trim()
-                ?: return@forEach
-            val poster = articulo.selectFirst("img")?.attr("src")?.takeIf { it.isNotBlank() }
-            val tipo = if (esEpisodio) TvType.Anime else tipoDesde(articulo.selectFirst("div.bg-line")?.text())
+            val titulo = articulo.selectFirst("h3, header div")?.text()?.trim()
+                ?.takeIf { it.isNotEmpty() } ?: return@forEach
+            val imagen = articulo.selectFirst("img")?.attr("src")
+            val id = idDeImagen(imagen)
+            val capitulo = numeroDeCapitulo(articulo)
+
+            val poster = when {
+                id != null && capitulo != null && caps.contains("$id-$capitulo") ->
+                    "$CAPS_BASE/$id-$capitulo.jpg"
+
+                id != null -> "$CDN/covers/$id.jpg"
+                else -> posterDeTarjeta(articulo)
+            }
 
             salida.add(
-                newAnimeSearchResponse(titulo, limpio, tipo) {
+                newAnimeSearchResponse(titulo, limpio, TvType.Anime) {
+                    this.posterUrl = poster
+                }
+            )
+        }
+        return salida
+    }
+
+    /** "Animes / Recientemente agregados": portadas normales del catalogo. */
+    private suspend fun seccionAgregados(): List<SearchResponse> {
+        val doc = app.get(mainUrl).document
+        val seccion = seccionPorTitulo(doc, "recientemente agregados") ?: return emptyList()
+
+        val vistos = mutableSetOf<String>()
+        val salida = mutableListOf<SearchResponse>()
+        seccion.select("article").forEach { articulo ->
+            val enlace = articulo.selectFirst("a[href^=/media/]") ?: return@forEach
+            val limpio = urlDeSerie(fixUrl(enlace.attr("href"))) ?: return@forEach
+            if (!vistos.add(limpio)) return@forEach
+
+            val titulo = articulo.selectFirst("h3, header div")?.text()?.trim()
+                ?.takeIf { it.isNotEmpty() } ?: return@forEach
+            val poster = posterDeTarjeta(articulo)
+
+            salida.add(
+                newAnimeSearchResponse(titulo, limpio, tipoDesde(articulo.selectFirst("div.bg-line")?.text())) {
                     this.posterUrl = poster
                 }
             )
@@ -127,11 +167,17 @@ class AnimeAV1Provider : MainAPI() {
         val spans = doc.select("header div.flex.flex-wrap.items-center > span").map { it.text().trim() }
         val tipo = tipoDesde(spans.firstOrNull())
         val anio = spans.firstOrNull { yearRegex.matches(it) }?.toIntOrNull()
-        val generos = doc.select("a[href^=/catalogo?genre=]").map { it.text().trim() }.filter { it.isNotEmpty() }.distinct()
-        val poster = doc.selectFirst("img[src*=/covers/]")?.attr("src")
-        val fondo = doc.selectFirst("img[src*=/backdrops/]")?.attr("src")
+        val generos = doc.select("a[href^=/catalogo?genre=]")
+            .map { it.text().trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+
+        // Solo covers: los backdrops dan 403 en muchas fichas y dejarian el
+        // hueco de la portada vacio en el carrusel y en el detalle.
+        val poster = doc.selectFirst("img[src*=/covers/]")?.attr("src")?.takeIf { it.isNotBlank() }
+            ?: doc.select("img").map { it.attr("src") }.firstOrNull { idDeImagen(it) != null }
+
         val sinopsis = doc.select(".entry p").joinToString("\n\n") { it.text().trim() }.ifBlank { null }
-        val puntos = doc.selectFirst("div.ic-star-solid div.text-2xl")?.text()?.trim()?.replace(",", ".")?.toDoubleOrNull()
 
         val episodios = doc.select("a[href]").mapNotNull { a ->
             val href = a.attr("href")
@@ -140,20 +186,29 @@ class AnimeAV1Provider : MainAPI() {
             m.groupValues[2].toIntOrNull()?.let { it to fixUrl(href) }
         }.distinctBy { it.first }.sortedBy { it.first }
 
-        if (tipo == TvType.AnimeMovie || episodios.isEmpty()) {
-            val directo = episodios.firstOrNull()?.second ?: "$url/1"
-            return newMovieLoadResponse(titulo, url, TvType.AnimeMovie, directo) {
+        // Ficha sin episodios (proximamente): nunca inventar una URL de play.
+        if (episodios.isEmpty()) {
+            return newAnimeLoadResponse(titulo, url, tipo) {
                 this.posterUrl = poster
-                this.backgroundPosterUrl = fondo
+                this.year = anio
+                this.plot = sinopsis
+                this.tags = generos
+                this.comingSoon = true
+                this.addEpisodes(DubStatus.Subbed, emptyList())
+            }
+        }
+
+        if (tipo == TvType.AnimeMovie) {
+            return newMovieLoadResponse(titulo, url, TvType.AnimeMovie, episodios.first().second) {
+                this.posterUrl = poster
                 this.year = anio
                 this.plot = sinopsis
                 this.tags = generos
             }
         }
 
-        return newAnimeLoadResponse(titulo, url, TvType.Anime) {
+        return newAnimeLoadResponse(titulo, url, tipo) {
             this.posterUrl = poster
-            this.backgroundPosterUrl = fondo
             this.year = anio
             this.plot = sinopsis
             this.tags = generos
@@ -235,21 +290,72 @@ class AnimeAV1Provider : MainAPI() {
 
         val salida = mutableListOf<Pair<String, String>>()
         arr.forEach { nodo ->
-            if (nodo.isObject && nodo.has("server") && nodo.has("url")) {
-                val servidor = resolver(nodo.get("server"))
-                val enlace = resolver(nodo.get("url"))
-                if (servidor != null && enlace != null && enlace.startsWith("http")) {
-                    salida.add(servidor to enlace)
-                }
-            }
+            if (!nodo.isObject) return@forEach
+            val servidor = resolver(nodo.get("server")) ?: return@forEach
+            val enlace = resolver(nodo.get("url") ?: nodo.get("link") ?: nodo.get("embed")) ?: return@forEach
+            if (!enlace.startsWith("http")) return@forEach
+            salida.add(servidor to enlace)
         }
-        return salida.distinct()
+        return salida.distinctBy { it.second }
     }
 
     // ---------------------------------------------------------------- helpers
 
+    private companion object {
+        const val CDN = "https://cdn.animeav1.com"
+        const val CAPS_BASE =
+            "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/caps"
+        const val CAPS_TTL = 6 * 60 * 60 * 1000L
+
+        @Volatile
+        private var capsCache: Set<String>? = null
+
+        @Volatile
+        private var capsCacheAt = 0L
+    }
+
+    /** Indice de portadas ya compuestas con el numero de capitulo. */
+    private suspend fun capsDisponibles(): Set<String> {
+        val ahora = System.currentTimeMillis()
+        capsCache?.let { if (ahora - capsCacheAt < CAPS_TTL) return it }
+        val nuevo = runCatching {
+            mapper.readTree(app.get("$CAPS_BASE/index.json").text).fieldNames()
+                .asSequence().toSet()
+        }.getOrNull()
+        if (nuevo != null) {
+            capsCache = nuevo
+            capsCacheAt = ahora
+            return nuevo
+        }
+        return capsCache ?: emptySet()
+    }
+
+    /** Bloque de la portada localizado por su subtitulo. */
+    private fun seccionPorTitulo(doc: Document, aguja: String): Element? {
+        val etiqueta = doc.select("p, span, h2, h3, div")
+            .filter { it.text().contains(aguja, ignoreCase = true) }
+            .minByOrNull { it.text().length }
+        return etiqueta?.closest("section")
+    }
+
+    private fun idDeImagen(url: String?): String? =
+        url?.let { idImagenRegex.find(it)?.groupValues?.get(1) }
+
+    private fun numeroDeCapitulo(articulo: Element): String? {
+        val texto = articulo.selectFirst("div.bg-line")?.text()?.trim() ?: return null
+        if (!texto.contains("episodio", ignoreCase = true)) return null
+        return numeroRegex.find(texto)?.groupValues?.get(1)
+    }
+
+    private fun posterDeTarjeta(articulo: Element): String? {
+        val imagenes = articulo.select("img").map { it.attr("src") }.filter { it.isNotBlank() }
+        imagenes.firstOrNull { it.contains("/covers/") }?.let { return it }
+        imagenes.firstOrNull()?.let { return idDeImagen(it)?.let { id -> "$CDN/covers/$id.jpg" } ?: it }
+        return null
+    }
+
     /** Tarjetas del catalogo / resultados de busqueda. */
-    private fun org.jsoup.nodes.Document.cards(): List<SearchResponse> {
+    private fun Document.cards(): List<SearchResponse> {
         val vistos = mutableSetOf<String>()
         val salida = mutableListOf<SearchResponse>()
         this.select("article").forEach { articulo ->
@@ -257,9 +363,9 @@ class AnimeAV1Provider : MainAPI() {
             val limpio = urlDeSerie(fixUrl(enlace.attr("href"))) ?: return@forEach
             if (!vistos.add(limpio)) return@forEach
 
-            val titulo = articulo.selectFirst("h3, header div")?.text()?.trim() ?: return@forEach
-            val poster = articulo.selectFirst("img[src*=/covers/]")?.attr("src")
-                ?: articulo.selectFirst("img")?.attr("src")
+            val titulo = articulo.selectFirst("h3, header div")?.text()?.trim()
+                ?.takeIf { it.isNotEmpty() } ?: return@forEach
+            val poster = posterDeTarjeta(articulo)
             val tipo = tipoDesde(articulo.selectFirst("div.bg-line")?.text())
 
             salida.add(
