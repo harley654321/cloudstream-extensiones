@@ -1,13 +1,13 @@
 {
   "repo": "https://github.com/harley654321/cloudstream-extensiones",
-  "generado": "2026-11-10T19:53:27Z",
+  "generado": "2026-11-10T20:07:44Z",
   "api": "CloudStream 4.9.1",
   "total": 1,
   "extensiones": [
     {
       "nombre": "PlantillaProvider",
       "interno": "PlantillaProvider",
-      "version": 1,
+      "version": 3,
       "status": 1,
       "autores": [
         "harley654321"
@@ -17,8 +17,8 @@
       "tipos": [
         "Movie"
       ],
-      "bytes": 8857,
-      "hash": "sha256-3b915a8937416b3e25916469fd68b7347790e2cb02376aa1d173ab9cd4edba14",
+      "bytes": 8858,
+      "hash": "sha256-66dbcc061da754ed8dcb5c5eb20cebd1cbb46abd30ff9fb7c93e6448a748e511",
       "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/PlantillaProvider.cs3"
     }
   ]
