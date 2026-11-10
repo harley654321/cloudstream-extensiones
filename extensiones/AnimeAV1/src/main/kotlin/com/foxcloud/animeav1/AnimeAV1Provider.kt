@@ -11,6 +11,7 @@ import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.TvType
 import com.lagradost.cloudstream3.addEpisodes
+import com.lagradost.cloudstream3.amap
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.fixUrl
 import com.lagradost.cloudstream3.mainPageOf
@@ -72,13 +73,30 @@ class AnimeAV1Provider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         return when (request.data) {
-            "recientes" -> newHomePageResponse(request.name, seccionRecientes(), false)
-            "agregados" -> newHomePageResponse(request.name, seccionAgregados(), false)
+            "recientes" -> {
+                // La portada solo pinta 20 episodios y no hay listado paginado de
+                // episodios, asi que el resto de la fila sigue el orden del
+                // catalogo (que es el mismo "ultima actualizacion").
+                val desde = if (page == 1) 2 else (page - 1) * BLOQUES + 2
+                val (extra, hayMas) = catalogoBloque("", desde)
+                val base = if (page == 1) bloqueRecientes() else emptyList()
+                newHomePageResponse(request.name, (base + extra).distinctBy { it.url }, hayMas)
+            }
+
+            "agregados" -> {
+                // Su bloque de portada tambien se corta en 20, asi que la fila
+                // sigue con el catalogo, pero desde mas abajo para no repetir
+                // los mismos titulos que "Capitulos recientes".
+                val desde = if (page == 1) 2 + BLOQUES else (page - 1) * BLOQUES + 2 + BLOQUES
+                val (extra, hayMas) = catalogoBloque("", desde)
+                val base = if (page == 1) bloqueAgregados() else emptyList()
+                newHomePageResponse(request.name, (base + extra).distinctBy { it.url }, hayMas)
+            }
+
             else -> {
-                val doc = app.get("$mainUrl/catalogo?${request.data}&page=$page").document
-                val items = doc.cards()
-                val hasNext = doc.selectFirst("a[href*=page=${page + 1}]") != null
-                newHomePageResponse(request.name, items, hasNext)
+                val desde = (page - 1) * BLOQUES + 1
+                val (items, hayMas) = catalogoBloque(request.data, desde)
+                newHomePageResponse(request.name, items, hayMas)
             }
         }
     }
@@ -89,7 +107,7 @@ class AnimeAV1Provider : MainAPI() {
      * portada es la compuesta con el numero del capitulo; si esa imagen aun no
      * existe se usa la portada limpia de la obra.
      */
-    private suspend fun seccionRecientes(): List<SearchResponse> {
+    private suspend fun bloqueRecientes(): List<SearchResponse> {
         val doc = app.get(mainUrl).document
         val seccion = seccionPorTitulo(doc, "recientemente actualizado")
             ?: doc.select("section").firstOrNull { it.selectFirst("a[href^=/media/]") != null }
@@ -127,7 +145,7 @@ class AnimeAV1Provider : MainAPI() {
     }
 
     /** "Animes / Recientemente agregados": portadas normales del catalogo. */
-    private suspend fun seccionAgregados(): List<SearchResponse> {
+    private suspend fun bloqueAgregados(): List<SearchResponse> {
         val doc = app.get(mainUrl).document
         val seccion = seccionPorTitulo(doc, "recientemente agregados") ?: return emptyList()
 
@@ -150,6 +168,27 @@ class AnimeAV1Provider : MainAPI() {
         }
         return salida
     }
+
+    /**
+     * Paginas del catalogo en paralelo. Devuelve BLOQUES paginas ya unidas y si
+     * queda alguna mas (se pide una extra solo para comprobarlo).
+     */
+    private suspend fun catalogoBloque(data: String, desde: Int): Pair<List<SearchResponse>, Boolean> {
+        val hasta = desde + BLOQUES
+        val paginas: List<List<SearchResponse>> = (desde..hasta).toList().amap { p ->
+            try {
+                app.get(urlCatalogo(data, p)).document.cards()
+            } catch (_: Exception) {
+                emptyList()
+            }
+        }
+        val items = paginas.dropLast(1).flatten().distinctBy { it.url }
+        val hayMas = paginas.lastOrNull()?.isNotEmpty() == true
+        return items to hayMas
+    }
+
+    private fun urlCatalogo(data: String, page: Int): String =
+        if (data.isBlank()) "$mainUrl/catalogo?page=$page" else "$mainUrl/catalogo?$data&page=$page"
 
     // ---------------------------------------------------------------- busqueda
 
@@ -323,6 +362,9 @@ class AnimeAV1Provider : MainAPI() {
         const val CAPS_BASE =
             "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/caps"
         const val CAPS_TTL = 6 * 60 * 60 * 1000L
+
+        /** Paginas de la web que se juntan por cada pagina de CloudStream. */
+        const val BLOQUES = 5
 
         @Volatile
         private var capsCache: Set<String>? = null
