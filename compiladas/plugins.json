@@ -1,9 +1,9 @@
 [
   {
-    "fileHash": "sha256-5d20b918aee9cbdb00f0891f0b9aebf8f016b233f7f8e3e21137088b0c24c41e",
+    "fileHash": "sha256-ac08210b343e94e6aca2d4ba5aa642d2236b0a2bfe1935a0063e4fb2b4f36f84",
     "apiVersion": 1,
     "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",
-    "fileSize": 25982,
+    "fileSize": 28075,
     "status": 1,
     "language": "es",
     "authors": [
@@ -14,10 +14,10 @@
       "AnimeMovie",
       "OVA"
     ],
-    "version": 3,
+    "version": 4,
     "internalName": "AnimeAV1",
     "description": "AnimeAV1: catalogo de anime en espanol. Recientes, agregados, populares, mejor puntuados, en emision y peliculas",
-    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/AnimeAV1-v3.cs3",
+    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/AnimeAV1-v4.cs3",
     "name": "AnimeAV1"
   },
   {
