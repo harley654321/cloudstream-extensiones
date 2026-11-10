@@ -63,13 +63,45 @@ jobs:
       - name: Cache de Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # JitPack compila bajo demanda y a veces responde 404 durante unos
+      # segundos (o rebuilds de -SNAPSHOT). Esperamos a que ambos artefactos
+      # esten servidos antes de lanzar Gradle, que falla a la primera.
+      - name: Precalentar JitPack
+        run: |
+          set -uo pipefail
+          urls=(
+            "https://jitpack.io/com/github/recloudstream/gradle/-SNAPSHOT/gradle--SNAPSHOT.pom"
+            "https://jitpack.io/com/github/recloudstream/cloudstream/library/4.9.1/library-4.9.1.pom"
+          )
+          for u in "${urls[@]}"; do
+            listo=0
+            for i in $(seq 1 24); do
+              code=$(curl -sL -o /dev/null -w '%{http_code}' -m 90 "$u" || echo 000)
+              echo "$code  intento $i  $u"
+              if [ "$code" = "200" ]; then listo=1; break; fi
+              sleep 10
+            done
+            if [ "$listo" != "1" ]; then echo "AVISO: JitPack no sirvio $u"; fi
+          done
+
       - name: Versionar extensiones cambiadas
         run: python3 scripts/fabrica.py preparar
 
       - name: Compilar .cs3 y plugins.json
         run: |
           chmod +x ./gradlew
-          ./gradlew make makePluginsJson --no-daemon --stacktrace
+          for intento in 1 2 3; do
+            echo "== Compilacion, intento $intento =="
+            if [ "$intento" = "1" ]; then
+              ./gradlew make makePluginsJson --no-daemon --stacktrace && exit 0
+            else
+              ./gradlew make makePluginsJson --no-daemon --stacktrace --refresh-dependencies && exit 0
+            fi
+            echo "Fallo de resolucion, reintentando en 30s"
+            sleep 30
+          done
+          echo "La compilacion fallo tras 3 intentos"
+          exit 1
 
       - name: Publicar en compiladas/
         run: python3 scripts/fabrica.py publicar
