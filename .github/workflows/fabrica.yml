@@ -70,7 +70,6 @@ jobs:
         run: |
           set -uo pipefail
           urls=(
-            "https://jitpack.io/com/github/recloudstream/gradle/-SNAPSHOT/gradle--SNAPSHOT.pom"
             "https://jitpack.io/com/github/recloudstream/cloudstream/library/4.9.1/library-4.9.1.pom"
           )
           for u in "${urls[@]}"; do

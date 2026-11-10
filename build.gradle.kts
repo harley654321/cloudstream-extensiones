@@ -16,8 +16,10 @@ buildscript {
     }
     dependencies {
         classpath("com.android.tools.build:gradle:8.7.3")
-        // Plugin de Gradle de CloudStream: empaqueta el .cs3 y genera plugins.json
-        classpath("com.github.recloudstream:gradle:-SNAPSHOT")
+        // Plugin de Gradle de CloudStream (vendra-do en tools/): empaqueta el .cs3
+        // y genera plugins.json. Se sirve como fichero local para no depender de
+        // que JitPack responda en cada compilacion.
+        classpath(files("tools/cloudstream-gradle-plugin.jar"))
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.0")
     }
 }

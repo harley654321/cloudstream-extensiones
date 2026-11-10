@@ -6,6 +6,7 @@
 |---|---|
 | `settings.gradle.kts` | Descubre `extensiones/*/build.gradle.kts` y los incluye como subproyectos. Anadir carpeta = anadir extension. |
 | `build.gradle.kts` | Configuracion comun: AGP 8.7.3, Kotlin 2.3.0, `minSdk 21`, `compileSdk 35`, `jvmTarget 1.8`, y los stubs de la API `4.9.1`. |
+| `tools/cloudstream-gradle-plugin.jar` | Plugin de Gradle de CloudStream vendido en el repo: empaqueta el `.cs3` y genera `plugins.json` sin depender de JitPack. Ver `tools/LEEME.md`. |
 | `extensiones/<Nombre>/` | Codigo de la extension y su `version` + metadatos. |
 | `scripts/fabrica.py` | Versionado por hash de fuentes y publicacion de artefactos. |
 | `.github/workflows/fabrica.yml` | Ejecuta la fabrica en cada push a `main`. |
