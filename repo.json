@@ -1,0 +1,8 @@
+{
+  "name": "FoxCloud Extensiones",
+  "description": "Fabrica propia de extensiones CloudStream (API 4.9.1)",
+  "manifestVersion": 1,
+  "pluginLists": [
+    "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/plugins.json"
+  ]
+}

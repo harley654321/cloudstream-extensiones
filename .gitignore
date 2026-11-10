@@ -1,0 +1,14 @@
+# Gradle / Android
+.gradle/
+build/
+**/build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+.vscode/
+.idea/
+*.iml
+.DS_Store
+
+# No ignoramos compiladas/: la fabrica las publica a proposito.
