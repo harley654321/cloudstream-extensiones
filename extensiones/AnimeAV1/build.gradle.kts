@@ -1,5 +1,4 @@
 version = 1
-
 cloudstream {
     description = "AnimeAV1: catalogo de anime en espanol. Recientes, agregados, en emision, peliculas e isekai"
     authors = listOf("harley654321")
