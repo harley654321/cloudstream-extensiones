@@ -118,7 +118,7 @@ class AnimeAV1Provider : MainAPI() {
 
             val poster = when {
                 id != null && capitulo != null && caps.contains("$id-$capitulo") ->
-                    "$CAPS_BASE/$id-$capitulo.jpg"
+                    "$CAPS_BASE/$id-$capitulo.jpg?v=$CAPS_VER"
 
                 id != null -> "$CDN/covers/$id.jpg"
                 else -> posterDeTarjeta(articulo)
@@ -352,8 +352,15 @@ class AnimeAV1Provider : MainAPI() {
             "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/caps"
         const val CAPS_TTL = 6 * 60 * 60 * 1000L
 
+        /**
+         * Se sube cuando cambia el diseno de las portadas compuestas. CloudStream
+         * (y cualquier cache de imagenes) guarda por URL, asi que sin esto se
+         * sigue viendo la version vieja aunque el fichero ya sea otro.
+         */
+        const val CAPS_VER = "2"
+
         /** Paginas de la web que se juntan por cada pagina de CloudStream. */
-        const val BLOQUES = 5
+        const val BLOQUES = 10
 
         @Volatile
         private var capsCache: Set<String>? = null
@@ -367,7 +374,7 @@ class AnimeAV1Provider : MainAPI() {
         val ahora = System.currentTimeMillis()
         capsCache?.let { if (ahora - capsCacheAt < CAPS_TTL) return it }
         val nuevo = runCatching {
-            mapper.readTree(app.get("$CAPS_BASE/index.json").text).fieldNames()
+            mapper.readTree(app.get("$CAPS_BASE/index.json?v=$CAPS_VER").text).fieldNames()
                 .asSequence().toSet()
         }.getOrNull()
         if (nuevo != null) {
