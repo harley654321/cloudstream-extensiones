@@ -61,10 +61,10 @@
     "name": "Cineplus123"
   },
   {
-    "fileHash": "sha256-a4315dfc5995b023f8051ea06231cdfa4b74cf0fe61ea9da91c12e2dd3745c32",
+    "fileHash": "sha256-6d8bd960af6a5b49ad8278a0a2deb1c98e1fe9f39e3729fe29af6095e2675062",
     "apiVersion": 1,
     "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",
-    "fileSize": 9570,
+    "fileSize": 17058,
     "status": 1,
     "language": "es",
     "authors": [
@@ -74,10 +74,10 @@
       "Movie",
       "TvSeries"
     ],
-    "version": 5,
+    "version": 7,
     "internalName": "FoxResolvedores",
     "description": "Fox Resolvedores: reproductores que CloudStream no trae de serie (Uqload .vc y la familia Byse). Complementa a la app, no la sustituye",
-    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/FoxResolvedores-v5.cs3",
+    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/FoxResolvedores-v7.cs3",
     "name": "FoxResolvedores"
   },
   {
@@ -102,10 +102,10 @@
     "name": "Monoschinos"
   },
   {
-    "fileHash": "sha256-5699f2135994bcad39f4195c085be77d6cdadb6302e835e5b90eba9797921844",
+    "fileHash": "sha256-189612015226da49f6ab975af86658a7ac8f0129aecd8edfd1b436bee74b9e7a",
     "apiVersion": 1,
     "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",
-    "fileSize": 27887,
+    "fileSize": 21322,
     "status": 1,
     "language": "es",
     "authors": [
@@ -116,10 +116,10 @@
       "AnimeMovie",
       "OVA"
     ],
-    "version": 12,
+    "version": 14,
     "internalName": "MundoDonghua",
     "description": "Mundo Donghua: animacion china en espanol. En emision, finalizados, recopilados y catalogo con paginacion real, buscador y todos los servidores de cada episodio",
-    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/MundoDonghua-v12.cs3",
+    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/MundoDonghua-v14.cs3",
     "name": "MundoDonghua"
   },
   {

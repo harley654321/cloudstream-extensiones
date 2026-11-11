@@ -17,16 +17,16 @@
       "hash": "c32a3f8a55bcf7857880f252f4b3adc7dfd582676329fca635a217d316ccfe89"
     },
     "FoxResolvedores": {
-      "version": 5,
-      "hash": "0df12ca1ecee75f6dc6ae54b10e320bbb4765ccc67c81560844b15b1478b5b16"
+      "version": 7,
+      "hash": "23515ac9d1077777215cbff9d1e604ce3f1721a0ebc9db279ed631ffdfd6f6fa"
     },
     "Monoschinos": {
       "version": 11,
       "hash": "6fbd4b6d2b84c5ff016c5054db32172c4d878a618ff11c14e493e701c54f7066"
     },
     "MundoDonghua": {
-      "version": 12,
-      "hash": "acb5a8b6b8793d849a0cde465ef07e4d23cfe02c28db3425ddf4eae4ba5ee98f"
+      "version": 14,
+      "hash": "3c3c1fd5c20a62577413d0a8194f2b04ce31953d35bd2540e4431d1bf5333d6c"
     }
   }
 }
