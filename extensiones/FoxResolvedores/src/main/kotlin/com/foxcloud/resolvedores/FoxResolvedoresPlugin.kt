@@ -13,7 +13,7 @@ import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
 class FoxResolvedoresPlugin : BasePlugin() {
     override fun load() {
         registerExtractorAPI(UqloadFox())
-        registerExtractorAPI(Mp4UploadFox())
+        registerExtractorAPI(ByseFox("https://bysekoze.com"))
         registerExtractorAPI(ByseFox("https://bysezoxexe.com"))
         registerExtractorAPI(ByseFox("https://byselapuix.com"))
     }
