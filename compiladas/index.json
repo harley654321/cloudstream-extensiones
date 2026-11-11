@@ -1,6 +1,6 @@
 {
   "repo": "https://github.com/harley654321/cloudstream-extensiones",
-  "generado": "2026-11-11T17:29:21Z",
+  "generado": "2026-11-11T17:35:13Z",
   "api": "CloudStream 4.9.1",
   "total": 8,
   "extensiones": [
@@ -62,7 +62,7 @@
     {
       "nombre": "FoxResolvedores",
       "interno": "FoxResolvedores",
-      "version": 8,
+      "version": 9,
       "status": 1,
       "autores": [
         "harley654321"
@@ -73,9 +73,9 @@
         "Movie",
         "TvSeries"
       ],
-      "bytes": 21043,
-      "hash": "sha256-e796cd890145ede79ef207a05a563d9bf0f46882e9782bb54f81c5855c052fd0",
-      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/FoxResolvedores-v8.cs3"
+      "bytes": 21090,
+      "hash": "sha256-057ce15a74f57e4114f370396e284737bfe452b4d892e6b2a0b68c498f460a72",
+      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/FoxResolvedores-v9.cs3"
     },
     {
       "nombre": "Monoschinos",
@@ -135,7 +135,7 @@
     {
       "nombre": "SeriesDonghua",
       "interno": "SeriesDonghua",
-      "version": 1,
+      "version": 2,
       "status": 1,
       "autores": [
         "harley654321"
@@ -147,9 +147,9 @@
         "AnimeMovie",
         "OVA"
       ],
-      "bytes": 24255,
-      "hash": "sha256-e9e1ef0589c05004622fec869b29d68dc5b4dacbe2c8ca00844b254d17e03520",
-      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/SeriesDonghua-v1.cs3"
+      "bytes": 24231,
+      "hash": "sha256-6358a36e9044429008a13e9b868018b7c8c9b9b57bdee3604ec6f948eb375c8e",
+      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/SeriesDonghua-v2.cs3"
     }
   ]
 }
