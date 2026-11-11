@@ -16,6 +16,8 @@ import com.lagradost.cloudstream3.newEpisode
 import com.lagradost.cloudstream3.newHomePageResponse
 import com.lagradost.cloudstream3.newTvSeriesLoadResponse
 import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.utils.ExtractorLinkType
+import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
@@ -56,8 +58,6 @@ class MundoDonghuaProvider : MainAPI() {
     override val mainPage = mainPageOf(
         "$mainUrl/lista-episodios?page=" to "Ultimos episodios",
         "$mainUrl#tab-pelis" to "Peliculas",
-        "$mainUrl#tab-ovas" to "Ovas",
-        "$mainUrl#tab-especiales" to "Especiales",
         "$mainUrl/lista-donghuas-emision" to "En emision",
         "$mainUrl/lista-donghuas-finalizados?page=" to "Finalizados",
         "$mainUrl/lista-donghuas-recopilados" to "Recopiladas"
@@ -72,6 +72,7 @@ class MundoDonghuaProvider : MainAPI() {
             RegexOption.DOT_MATCHES_ALL
         )
         val URL_EN_TEXTO = Regex("""https?://[^"'\s\\]+""")
+        val STREAM_EN_TEXTO = Regex("""https?://[^"'\s\\]+?\.(?:m3u8|mp4)[^"'\s\\]*""")
 
         /** Portadas compuestas con la etiqueta del episodio (repo del proyecto). */
         const val CAPS_BASE =
@@ -298,7 +299,59 @@ class MundoDonghuaProvider : MainAPI() {
                 }
             }
         }
+
+        // Los hosts del sitio (Byse, Voe, VidHide, EmbedWish) estan detras de
+        // DDoS-Guard y Cloudflare y a veces sus extractores devuelven vacio.
+        // Si no salio nada, se abre el reproductor por nuestra cuenta y se saca
+        // el m3u8 o el mp4 de dentro, sin depender de la app.
+        if (!alguno) {
+            servidores.forEach { embed ->
+                runCatching { enlacesDirectos(embed, data) { enlace ->
+                    alguno = true
+                    callback(enlace)
+                } }
+            }
+        }
         return alguno
+    }
+
+    /** Ultimo recurso: leer el reproductor y quedarse con su playlist. */
+    private suspend fun enlacesDirectos(
+        embed: String,
+        referer: String,
+        callback: (ExtractorLink) -> Unit
+    ) {
+        val html = pedir(embed, referer) ?: return
+        val vistos = mutableSetOf<String>()
+        (listOf(html) + desempaquetar(html)).forEach { texto ->
+            STREAM_EN_TEXTO.findAll(texto).forEach { hallado ->
+                val url = hallado.value
+                if (!vistos.add(url)) return@forEach
+                val hls = url.contains(".m3u8")
+                callback(
+                    ExtractorLink(
+                        source = name,
+                        name = servirDe(embed),
+                        url = url,
+                        referer = embed,
+                        quality = Qualities.Unknown.value,
+                        type = if (hls) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
+                    )
+                )
+            }
+        }
+    }
+
+    private fun servirDe(embed: String): String {
+        val host = embed.substringAfter("://").substringBefore("/")
+        return when {
+            host.contains("byse") -> "Byse"
+            host.contains("voe") -> "Voe"
+            host.contains("vidhide") -> "VidHide"
+            host.contains("wish") || host.contains("vgembed") -> "EmbedWish"
+            host.contains("strp2p") -> "StrP2P"
+            else -> host.removePrefix("www.")
+        }
     }
 
     /**
@@ -307,8 +360,8 @@ class MundoDonghuaProvider : MainAPI() {
      * de su indice en base `a`, asi que se deshace al reves: de la ultima a la
      * primera, para no romper los indices.
      */
-    private fun embedsDe(html: String): List<String> {
-        val salida = linkedSetOf<String>()
+    private fun desempaquetar(html: String): List<String> {
+        val salida = mutableListOf<String>()
         PACKER.findAll(html).forEach { bloque ->
             var codigo = bloque.groupValues[1]
             val base = bloque.groupValues[2].toIntOrNull() ?: 62
@@ -319,7 +372,15 @@ class MundoDonghuaProvider : MainAPI() {
                 codigo = Regex("""\b""" + digito(i, base) + """\b""")
                     .replace(codigo) { palabra }
             }
-            URL_EN_TEXTO.findAll(codigo).forEach { salida.add(it.value) }
+            salida.add(codigo)
+        }
+        return salida
+    }
+
+    private fun embedsDe(html: String): List<String> {
+        val salida = linkedSetOf<String>()
+        (listOf(html) + desempaquetar(html)).forEach { texto ->
+            URL_EN_TEXTO.findAll(texto).forEach { salida.add(it.value) }
         }
         return salida.toList()
     }
