@@ -181,16 +181,48 @@ class Cineplus123Provider : MainAPI() {
         return candidatos.asSequence()
             .map { it.trim() }
             .map { if (it.startsWith("//")) "https:" + it else it }
-            .firstOrNull { it.startsWith("http") && !it.contains("logo") && !it.contains("play.svg") && !it.contains("data:") }
+            .firstOrNull { it.startsWith("http") && !esAdorno(it) }
             ?.let { grande(it) }
     }
+
+    /** El logo del sitio, el icono de play y los marcadores de "sin imagen" no son portadas. */
+    private fun esAdorno(url: String): Boolean =
+        url.contains("logo") || url.contains("play.svg") || url.contains("no-poster") ||
+            url.contains("no_poster") || url.contains("placeholder") || url.contains("blank.gif") ||
+            url.endsWith(".svg") || url.startsWith("data:")
+
+    /**
+     * Portada de una ficha. En esta plantilla las tres primeras imagenes del HTML
+     * son el logo (x2) y el icono de play, y la portada real esta en .poster.
+     */
+    private fun posterFicha(doc: Document): String? {
+        val candidatos = mutableListOf<String>()
+        doc.select(".poster img").forEach { img ->
+            candidatos.add(img.attr("data-src"))
+            candidatos.add(img.attr("src"))
+        }
+        doc.selectFirst("meta[property=og:image]")?.attr("content")?.let { candidatos.add(it) }
+        doc.select("#single img, .sheader img, img").forEach { img ->
+            candidatos.add(img.attr("data-src"))
+            candidatos.add(img.attr("src"))
+        }
+        return candidatos.asSequence()
+            .map { it.trim() }
+            .map { if (it.startsWith("//")) "https:" + it else it }
+            .firstOrNull { it.startsWith("http") && !esAdorno(it) }
+            ?.let { grande(it) }
+    }
+
+    /** Si una tarjeta no trae portada, se pide a su ficha (solo cuando falta). */
+    private suspend fun posterFicha(href: String): String? =
+        runCatching { posterFicha(app.get(href).document) }.getOrNull()
 
     /** Las tarjetas pequeñas traen la portada en 185px; se pide en 500px. */
     private fun grande(url: String): String =
         url.replace("/t/p/w92/", "/t/p/w500/").replace("/t/p/w185/", "/t/p/w500/").replace("/t/p/w300/", "/t/p/w500/")
 
     /** Carrusel de la portada (10-18 titulos reales del sitio). */
-    private fun destacados(doc: Document): List<SearchResponse> {
+    private suspend fun destacados(doc: Document): List<SearchResponse> {
         val salida = mutableListOf<SearchResponse>()
         val vistos = mutableSetOf<String>()
         doc.select(".animation-1.slider article.item, .items.featured article.item").forEach { articulo ->
@@ -198,7 +230,7 @@ class Cineplus123Provider : MainAPI() {
                 .firstOrNull { fichaRegex.containsMatchIn(it) } ?: return@forEach
             if (!vistos.add(href)) return@forEach
             val titulo = tituloDe(articulo) ?: return@forEach
-            val poster = posterDe(articulo)
+            val poster = posterDe(articulo) ?: posterFicha(href)
             salida.add(
                 if (href.contains("/serie-de-tv/")) {
                     newTvSeriesSearchResponse(titulo, href, TvType.TvSeries) { this.posterUrl = poster }
@@ -211,7 +243,7 @@ class Cineplus123Provider : MainAPI() {
     }
 
     /** /imdb/ mezcla peliculas y series en un solo bloque: se separan por la ruta. */
-    private fun ranking(doc: Document, series: Boolean): List<SearchResponse> {
+    private suspend fun ranking(doc: Document, series: Boolean): List<SearchResponse> {
         val salida = mutableListOf<SearchResponse>()
         val vistos = mutableSetOf<String>()
         doc.select(".top-imdb-item").forEach { bloque ->
@@ -220,7 +252,7 @@ class Cineplus123Provider : MainAPI() {
             if (href.contains("/serie-de-tv/") != series) return@forEach
             if (!vistos.add(href)) return@forEach
             val titulo = tituloDe(bloque) ?: return@forEach
-            val poster = posterDe(bloque)
+            val poster = posterDe(bloque) ?: posterFicha(href)
             salida.add(
                 if (series) newTvSeriesSearchResponse(titulo, href, TvType.TvSeries) { this.posterUrl = poster }
                 else newMovieSearchResponse(titulo, href, TvType.Movie) { this.posterUrl = poster }
@@ -237,7 +269,27 @@ class Cineplus123Provider : MainAPI() {
 
     override suspend fun search(query: String): List<SearchResponse>? {
         val doc = app.get(mainUrl, params = mapOf("s" to query)).document
-        return doc.cards()
+        // El buscador del tema no usa article.item: devuelve div.result-item,
+        // cada uno con su ficha en .details .title a y la portada en img[data-src].
+        val resultados = mutableListOf<SearchResponse>()
+        val vistos = mutableSetOf<String>()
+        doc.select("div.result-item").forEach { fila ->
+            val href = fila.select("a[href]").map { it.attr("href") }
+                .firstOrNull { fichaRegex.containsMatchIn(it) } ?: return@forEach
+            if (!vistos.add(href)) return@forEach
+            val titulo = fila.selectFirst(".details .title a")?.text()?.trim()?.takeIf { it.isNotEmpty() }
+                ?: tituloDe(fila) ?: return@forEach
+            val poster = posterDe(fila) ?: posterFicha(href)
+            val esSerie = href.contains("/serie-de-tv/")
+            resultados.add(
+                if (esSerie) {
+                    newTvSeriesSearchResponse(titulo, href, TvType.TvSeries) { this.posterUrl = poster }
+                } else {
+                    newMovieSearchResponse(titulo, href, TvType.Movie) { this.posterUrl = poster }
+                }
+            )
+        }
+        return if (resultados.isNotEmpty()) resultados else doc.cards()
     }
 
     // ------------------------------------------------------------------ ficha
@@ -246,10 +298,7 @@ class Cineplus123Provider : MainAPI() {
         val doc = app.get(url).document
         val titulo = doc.selectFirst("h1")?.text()?.trim() ?: return null
 
-        val poster = doc.select("img[data-src]")
-            .map { Pair(it.attr("alt").trim(), it.attr("data-src")) }
-            .firstOrNull { it.second.startsWith("http") && !it.second.contains("logo") }
-            ?.second
+        val poster = posterFicha(doc)
 
         val sinopsis = (doc.select(".wp-content p").map { it.text().trim() } +
             doc.select("[itemprop=description]").map { it.text().trim() })

@@ -1,4 +1,5 @@
-version = 3
+version = 4
+
 cloudstream {
     description = "Cineplus123: peliculas y series con servidores etiquetados por idioma (latino, castellano, subtitulado)"
     authors = listOf("harley654321")
