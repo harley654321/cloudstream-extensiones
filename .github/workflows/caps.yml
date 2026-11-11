@@ -14,6 +14,7 @@ on:
     paths:
       - ".github/scripts/caps.py"
       - ".github/scripts/caps_ms.py"
+      - ".github/scripts/caps_mdh.py"
       - ".github/workflows/caps.yml"
 
 permissions:
@@ -45,6 +46,9 @@ jobs:
 
       - name: Generar portadas (Monoschinos)
         run: python3 .github/scripts/caps_ms.py
+
+      - name: Generar portadas (Mundo Donghua)
+        run: python3 .github/scripts/caps_mdh.py
 
       - name: Publicar cambios
         run: |

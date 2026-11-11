@@ -1,5 +1,6 @@
 package com.foxcloud.mundodonghua
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.HomePageResponse
 import com.lagradost.cloudstream3.LoadResponse
@@ -54,11 +55,15 @@ class MundoDonghuaProvider : MainAPI() {
 
     override val mainPage = mainPageOf(
         "$mainUrl/lista-episodios?page=" to "Ultimos episodios",
+        "$mainUrl#tab-pelis" to "Peliculas",
+        "$mainUrl#tab-ovas" to "Ovas",
+        "$mainUrl#tab-especiales" to "Especiales",
         "$mainUrl/lista-donghuas-emision" to "En emision",
         "$mainUrl/lista-donghuas-finalizados?page=" to "Finalizados",
-        "$mainUrl/lista-donghuas?page=" to "Todas",
         "$mainUrl/lista-donghuas-recopilados" to "Recopiladas"
     )
+
+    private val mapper = ObjectMapper()
 
     private companion object {
         const val REINTENTOS = 3
@@ -67,6 +72,20 @@ class MundoDonghuaProvider : MainAPI() {
             RegexOption.DOT_MATCHES_ALL
         )
         val URL_EN_TEXTO = Regex("""https?://[^"'\s\\]+""")
+
+        /** Portadas compuestas con la etiqueta del episodio (repo del proyecto). */
+        const val CAPS_BASE =
+            "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/caps/mdh"
+
+        /** Igual que DISENO en .github/scripts/caps_mdh.py. */
+        const val CAPS_VER = "1"
+        const val CAPS_TTL = 60 * 60 * 1000L
+
+        @Volatile
+        var capsCache: Map<String, String>? = null
+
+        @Volatile
+        var capsCacheAt = 0L
     }
 
     // ------------------------------------------------------------- red
@@ -101,9 +120,16 @@ class MundoDonghuaProvider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val paginada = request.data.contains("?page=")
-        val url = if (paginada) request.data + page else request.data
-        val doc = documento(url) ?: return newHomePageResponse(request, emptyList(), false)
-        val items = doc.tarjetas()
+        val panel = request.data.substringAfter("#tab-", "")
+        val url = request.data.substringBefore("#")
+        val doc = documento(if (paginada) url + page else url)
+            ?: return newHomePageResponse(request, emptyList(), false)
+
+        val items = when {
+            panel.isNotEmpty() -> doc.tarjetas(panel = "#tab-$panel")
+            request.data.contains("lista-episodios") -> doc.tarjetas(conPastilla = true)
+            else -> doc.tarjetas()
+        }
         return newHomePageResponse(request, items, paginada && items.isNotEmpty())
     }
 
@@ -168,11 +194,16 @@ class MundoDonghuaProvider : MainAPI() {
 
     // -------------------------------------------------------- tarjetas
 
-    private fun Document.tarjetas(): List<SearchResponse> {
+    private suspend fun Document.tarjetas(
+        panel: String? = null,
+        conPastilla: Boolean = false
+    ): List<SearchResponse> {
         val salida = mutableListOf<SearchResponse>()
         val vistos = mutableSetOf<String>()
+        val indice = if (conPastilla) indiceCaps() else emptyMap()
 
-        select(".md-card").forEach { tarjeta ->
+        val tarjetas = if (panel != null) select("$panel .md-card") else select(".md-card")
+        tarjetas.forEach { tarjeta ->
             val enlace = tarjeta.selectFirst("a[href]")?.attr("href")?.takeIf { it.isNotBlank() }
                 ?: return@forEach
             if (!enlace.contains("/donghua/") && !enlace.contains("/ver/")) return@forEach
@@ -187,15 +218,58 @@ class MundoDonghuaProvider : MainAPI() {
             val obra = obraDe(enlace)
             if (!vistos.add(obra)) return@forEach
 
+            // La fila de ultimos episodios usa la portada compuesta con "EP n".
+            val clave = claveCapitulo(enlace)
+            val compuesta = if (conPastilla && clave != null && indice.containsKey(clave)) {
+                "$CAPS_BASE/$clave.jpg?v=$CAPS_VER"
+            } else null
+
             // Las tarjetas de episodio traen "Obra Episodio N": se queda el titulo
             // de la obra para que la fila sea de series, no de episodios sueltos.
             val nombre = titulo
                 .replace(Regex("""\s+Episodio\s+\d+.*$""", RegexOption.IGNORE_CASE), "")
                 .trim().ifEmpty { titulo }
 
-            salida.add(newAnimeSearchResponse(nombre, obra, TvType.Anime) { this.posterUrl = poster })
+            salida.add(newAnimeSearchResponse(nombre, obra, TvType.Anime) {
+                this.posterUrl = compuesta ?: poster
+            })
         }
         return salida
+    }
+
+    /** "obra-123" a partir de /ver/obra/123 o /ver/obra/123/<token>. */
+    private fun claveCapitulo(href: String): String? {
+        val partes = absoluto(href).substringAfter("/ver/", "").split("/")
+        if (partes.size < 2) return null
+        val numero = partes[1].substringBefore("?").substringBefore("#")
+        if (numero.isEmpty() || !numero.all { it.isDigit() }) return null
+        return partes[0] + "-" + numero
+    }
+
+    /**
+     * Indice de portadas compuestas del repo. Si una portada no se pudo
+     * componer, el indice guarda su direccion real en _cover.
+     */
+    private suspend fun indiceCaps(): Map<String, String> {
+        val ahora = System.currentTimeMillis()
+        capsCache?.let { if (ahora - capsCacheAt < CAPS_TTL) return it }
+        val nuevo = runCatching {
+            val raiz = mapper.readTree(app.get("$CAPS_BASE/index.json?v=$CAPS_VER").text)
+            val salida = mutableMapOf<String, String>()
+            raiz.fieldNames().forEach { campo ->
+                if (!campo.startsWith("_")) salida[campo] = ""
+            }
+            raiz.get("_cover")?.fields()?.forEach { (clave, valor) ->
+                salida[clave] = valor.asText()
+            }
+            salida
+        }.getOrNull()
+        if (nuevo != null) {
+            capsCache = nuevo
+            capsCacheAt = ahora
+            return nuevo
+        }
+        return capsCache ?: emptyMap()
     }
 
     // --------------------------------------------------------- enlaces
