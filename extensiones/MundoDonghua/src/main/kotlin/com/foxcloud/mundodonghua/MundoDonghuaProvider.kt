@@ -270,8 +270,12 @@ class MundoDonghuaProvider : MainAPI() {
         val host = embed.substringAfter("://").substringBefore("/")
         when {
             host.contains("wish") || host.contains("vgembed") -> 0
-            host.contains("vidhide") -> 1
-            host.contains("byse") -> 2
+            // Byse responde siempre por HTTPS normal: si esta FoxResolvedores
+            // instalado sale en un par de segundos. VidHide, en cambio, pasa
+            // por DDoS-Guard y sus reintentos son los que dejaban la obra
+            // cargando casi medio minuto, asi que va despues.
+            host.contains("byse") -> 1
+            host.contains("vidhide") -> 2
             host.contains("voe") -> 3
             else -> 4
         }
