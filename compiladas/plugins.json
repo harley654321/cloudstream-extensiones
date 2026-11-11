@@ -142,10 +142,10 @@
     "name": "PlantillaProvider"
   },
   {
-    "fileHash": "sha256-937f7171931f6787538ab390554cf216b1ea63e40284c98ffc31f598c52ab898",
+    "fileHash": "sha256-419bab7668d609be53dfd4cfb93a4e5d41650862d1031f5e820202421cc91479",
     "apiVersion": 1,
     "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",
-    "fileSize": 24254,
+    "fileSize": 26070,
     "status": 1,
     "language": "es",
     "authors": [
@@ -156,10 +156,10 @@
       "AnimeMovie",
       "OVA"
     ],
-    "version": 4,
+    "version": 5,
     "internalName": "SeriesDonghua",
     "description": "Series Donghua: donghua subtitulado en espanol. Catalogo completo con paginacion real, en emision, finalizados, buscador y todos los servidores de cada episodio (Dailymotion, OK.ru, VOE, Filemoon, Rumble)",
-    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/SeriesDonghua-v4.cs3",
+    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/SeriesDonghua-v5.cs3",
     "name": "SeriesDonghua"
   }
 ]

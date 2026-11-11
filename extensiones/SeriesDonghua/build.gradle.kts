@@ -1,4 +1,4 @@
-version = 4
+version = 5
 cloudstream {
     description = "Series Donghua: donghua subtitulado en espanol. Catalogo completo con paginacion real, en emision, finalizados, buscador y todos los servidores de cada episodio (Dailymotion, OK.ru, VOE, Filemoon, Rumble)"
     authors = listOf("harley654321")
