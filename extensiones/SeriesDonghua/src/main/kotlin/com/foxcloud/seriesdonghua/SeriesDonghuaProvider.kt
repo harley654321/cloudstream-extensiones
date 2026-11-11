@@ -202,17 +202,17 @@ class SeriesDonghuaProvider : MainAPI() {
 
         // Ficha de un solo episodio (fila de ultimos capitulos): se abre directo.
         if (url.contains("-episodio-")) {
-            return newTvSeriesLoadResponse(titulo, url, TvType.Anime) {
+            val unico = listOf(
+                newEpisode(url) {
+                    this.name = titulo
+                    this.posterUrl = poster
+                }
+            )
+            return newTvSeriesLoadResponse(titulo, url, TvType.Anime, unico) {
                 this.posterUrl = poster
                 this.plot = sinopsis
                 this.tags = generos
                 this.year = anio
-                this.episodes = listOf(
-                    newEpisode(url) {
-                        this.name = titulo
-                        this.posterUrl = poster
-                    }
-                )
             }
         }
 
@@ -229,12 +229,11 @@ class SeriesDonghuaProvider : MainAPI() {
             }
         }.sortedBy { it.episode ?: 0 }
 
-        return newTvSeriesLoadResponse(titulo, url, TvType.Anime) {
+        return newTvSeriesLoadResponse(titulo, url, TvType.Anime, episodios) {
             this.posterUrl = poster
             this.plot = sinopsis
             this.tags = generos
             this.year = anio
-            this.episodes = episodios
         }
     }
 
