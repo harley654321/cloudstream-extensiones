@@ -1,6 +1,5 @@
 package com.foxcloud.mundodonghua
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.HomePageResponse
 import com.lagradost.cloudstream3.LoadResponse
@@ -63,7 +62,6 @@ class MundoDonghuaProvider : MainAPI() {
         "$mainUrl/lista-donghuas-recopilados" to "Recopiladas"
     )
 
-    private val mapper = ObjectMapper()
 
     private companion object {
         const val REINTENTOS = 3
@@ -73,20 +71,6 @@ class MundoDonghuaProvider : MainAPI() {
         )
         val URL_EN_TEXTO = Regex("""https?://[^"'\s\\]+""")
         val STREAM_EN_TEXTO = Regex("""https?://[^"'\s\\]+?\.(?:m3u8|mp4)[^"'\s\\]*""")
-
-        /** Portadas compuestas con la etiqueta del episodio (repo del proyecto). */
-        const val CAPS_BASE =
-            "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/caps/mdh"
-
-        /** Igual que DISENO en .github/scripts/caps_mdh.py. */
-        const val CAPS_VER = "1"
-        const val CAPS_TTL = 60 * 60 * 1000L
-
-        @Volatile
-        var capsCache: Map<String, String>? = null
-
-        @Volatile
-        var capsCacheAt = 0L
     }
 
     // ------------------------------------------------------------- red
@@ -126,11 +110,7 @@ class MundoDonghuaProvider : MainAPI() {
         val doc = documento(if (paginada) url + page else url)
             ?: return newHomePageResponse(request, emptyList(), false)
 
-        val items = when {
-            panel.isNotEmpty() -> doc.tarjetas(panel = "#tab-$panel")
-            request.data.contains("lista-episodios") -> doc.tarjetas(conPastilla = true)
-            else -> doc.tarjetas()
-        }
+        val items = if (panel.isNotEmpty()) doc.tarjetas(panel = "#tab-$panel") else doc.tarjetas()
         return newHomePageResponse(request, items, paginada && items.isNotEmpty())
     }
 
@@ -195,13 +175,9 @@ class MundoDonghuaProvider : MainAPI() {
 
     // -------------------------------------------------------- tarjetas
 
-    private suspend fun Document.tarjetas(
-        panel: String? = null,
-        conPastilla: Boolean = false
-    ): List<SearchResponse> {
+    private fun Document.tarjetas(panel: String? = null): List<SearchResponse> {
         val salida = mutableListOf<SearchResponse>()
         val vistos = mutableSetOf<String>()
-        val indice = if (conPastilla) indiceCaps() else emptyMap()
 
         val tarjetas = if (panel != null) select("$panel .md-card") else select(".md-card")
         tarjetas.forEach { tarjeta ->
@@ -219,58 +195,15 @@ class MundoDonghuaProvider : MainAPI() {
             val obra = obraDe(enlace)
             if (!vistos.add(obra)) return@forEach
 
-            // La fila de ultimos episodios usa la portada compuesta con "EP n".
-            val clave = claveCapitulo(enlace)
-            val compuesta = if (conPastilla && clave != null && indice.containsKey(clave)) {
-                "$CAPS_BASE/$clave.jpg?v=$CAPS_VER"
-            } else null
-
             // Las tarjetas de episodio traen "Obra Episodio N": se queda el titulo
             // de la obra para que la fila sea de series, no de episodios sueltos.
             val nombre = titulo
                 .replace(Regex("""\s+Episodio\s+\d+.*$""", RegexOption.IGNORE_CASE), "")
                 .trim().ifEmpty { titulo }
 
-            salida.add(newAnimeSearchResponse(nombre, obra, TvType.Anime) {
-                this.posterUrl = compuesta ?: poster
-            })
+            salida.add(newAnimeSearchResponse(nombre, obra, TvType.Anime) { this.posterUrl = poster })
         }
         return salida
-    }
-
-    /** "obra-123" a partir de /ver/obra/123 o /ver/obra/123/<token>. */
-    private fun claveCapitulo(href: String): String? {
-        val partes = absoluto(href).substringAfter("/ver/", "").split("/")
-        if (partes.size < 2) return null
-        val numero = partes[1].substringBefore("?").substringBefore("#")
-        if (numero.isEmpty() || !numero.all { it.isDigit() }) return null
-        return partes[0] + "-" + numero
-    }
-
-    /**
-     * Indice de portadas compuestas del repo. Si una portada no se pudo
-     * componer, el indice guarda su direccion real en _cover.
-     */
-    private suspend fun indiceCaps(): Map<String, String> {
-        val ahora = System.currentTimeMillis()
-        capsCache?.let { if (ahora - capsCacheAt < CAPS_TTL) return it }
-        val nuevo = runCatching {
-            val raiz = mapper.readTree(app.get("$CAPS_BASE/index.json?v=$CAPS_VER").text)
-            val salida = mutableMapOf<String, String>()
-            raiz.fieldNames().forEach { campo ->
-                if (!campo.startsWith("_")) salida[campo] = ""
-            }
-            raiz.get("_cover")?.fields()?.forEach { (clave, valor) ->
-                salida[clave] = valor.asText()
-            }
-            salida
-        }.getOrNull()
-        if (nuevo != null) {
-            capsCache = nuevo
-            capsCacheAt = ahora
-            return nuevo
-        }
-        return capsCache ?: emptyMap()
     }
 
     // --------------------------------------------------------- enlaces
@@ -291,28 +224,51 @@ class MundoDonghuaProvider : MainAPI() {
         }
 
         var alguno = false
-        servidores.forEach { embed ->
+        val enOrden = ordenados(servidores)
+
+        // 1. Lectura directa. EmbedWish y VidHide entregan su m3u8 dentro del
+        //    JavaScript del reproductor, asi que se saca en un par de peticiones
+        //    rapidas y sin depender de los extractores de la app.
+        enOrden.forEach { embed ->
             runCatching {
-                loadExtractor(embed, data, subtitleCallback) { enlace ->
+                enlacesDirectos(embed, data) { enlace ->
                     alguno = true
                     callback(enlace)
                 }
             }
         }
 
-        // Los hosts del sitio (Byse, Voe, VidHide, EmbedWish) estan detras de
-        // DDoS-Guard y Cloudflare y a veces sus extractores devuelven vacio.
-        // Si no salio nada, se abre el reproductor por nuestra cuenta y se saca
-        // el m3u8 o el mp4 de dentro, sin depender de la app.
+        // 2. Solo si no salio nada (Byse y Voe cifran el reproductor) se pasa
+        //    por la lista de extractores, y se corta en el primero que responda
+        //    para que ninguna obra se quede cargando eternamente.
         if (!alguno) {
-            servidores.forEach { embed ->
-                runCatching { enlacesDirectos(embed, data) { enlace ->
+            for (embed in enOrden) {
+                var resuelto = false
+                runCatching {
+                    loadExtractor(embed, data, subtitleCallback) { enlace ->
+                        resuelto = true
+                        callback(enlace)
+                    }
+                }
+                if (resuelto) {
                     alguno = true
-                    callback(enlace)
-                } }
+                    break
+                }
             }
         }
         return alguno
+    }
+
+    /** Primero los que se resuelven leyendo su HTML, al final los cifrados. */
+    private fun ordenados(servidores: Set<String>): List<String> = servidores.sortedBy { embed ->
+        val host = embed.substringAfter("://").substringBefore("/")
+        when {
+            host.contains("wish") || host.contains("vgembed") -> 0
+            host.contains("vidhide") -> 1
+            host.contains("byse") -> 2
+            host.contains("voe") -> 3
+            else -> 4
+        }
     }
 
     /** Ultimo recurso: leer el reproductor y quedarse con su playlist. */

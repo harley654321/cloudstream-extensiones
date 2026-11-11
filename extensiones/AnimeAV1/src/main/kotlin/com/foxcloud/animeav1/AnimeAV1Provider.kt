@@ -40,7 +40,6 @@ import org.jsoup.nodes.Element
  * que aqui solo se usan `covers/<id>.jpg` y `thumbnails/<id>.jpg`, que si
  * responden siempre. CloudStream no dibuja capas sobre la portada, por eso el
  * numero de capitulo de "Capitulos recientes" llega ya compuesto en la imagen
- * (carpeta caps/ del repositorio).
  */
 class AnimeAV1Provider : MainAPI() {
     override var mainUrl = "https://animeav1.com"
@@ -101,7 +100,6 @@ class AnimeAV1Provider : MainAPI() {
         val seccion = seccionPorTitulo(doc, "recientemente actualizado")
             ?: doc.select("section").firstOrNull { it.selectFirst("a[href^=/media/]") != null }
             ?: return emptyList()
-        val caps = capsDisponibles()
 
         val vistos = mutableSetOf<String>()
         val salida = mutableListOf<SearchResponse>()
@@ -114,15 +112,7 @@ class AnimeAV1Provider : MainAPI() {
                 ?.takeIf { it.isNotEmpty() } ?: return@forEach
             val imagen = articulo.selectFirst("img")?.attr("src")
             val id = idDeImagen(imagen)
-            val capitulo = numeroDeCapitulo(articulo)
-
-            val poster = when {
-                id != null && capitulo != null && caps.contains("$id-$capitulo") ->
-                    "$CAPS_BASE/$id-$capitulo.jpg?v=$CAPS_VER"
-
-                id != null -> "$CDN/covers/$id.jpg"
-                else -> posterDeTarjeta(articulo)
-            }
+            val poster = if (id != null) "$CDN/covers/$id.jpg" else posterDeTarjeta(articulo)
 
             salida.add(
                 newAnimeSearchResponse(titulo, limpio, TvType.Anime) {
@@ -422,41 +412,9 @@ class AnimeAV1Provider : MainAPI() {
 
     private companion object {
         const val CDN = "https://cdn.animeav1.com"
-        const val CAPS_BASE =
-            "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/caps"
-        const val CAPS_TTL = 60 * 60 * 1000L
-
-        /**
-         * Se sube cuando cambia el diseno de las portadas compuestas. CloudStream
-         * (y cualquier cache de imagenes) guarda por URL, asi que sin esto se
-         * sigue viendo la version vieja aunque el fichero ya sea otro.
-         */
-        const val CAPS_VER = "2"
 
         /** Paginas de la web que se juntan por cada pagina de CloudStream. */
         const val BLOQUES = 10
-
-        @Volatile
-        private var capsCache: Set<String>? = null
-
-        @Volatile
-        private var capsCacheAt = 0L
-    }
-
-    /** Indice de portadas ya compuestas con el numero de capitulo. */
-    private suspend fun capsDisponibles(): Set<String> {
-        val ahora = System.currentTimeMillis()
-        capsCache?.let { if (ahora - capsCacheAt < CAPS_TTL) return it }
-        val nuevo = runCatching {
-            mapper.readTree(app.get("$CAPS_BASE/index.json?v=$CAPS_VER").text).fieldNames()
-                .asSequence().filter { !it.startsWith("_") }.toSet()
-        }.getOrNull()
-        if (nuevo != null) {
-            capsCache = nuevo
-            capsCacheAt = ahora
-            return nuevo
-        }
-        return capsCache ?: emptySet()
     }
 
     /** Bloque de la portada localizado por su subtitulo. */
@@ -474,11 +432,6 @@ class AnimeAV1Provider : MainAPI() {
     private fun idDeImagen(url: String?): String? =
         url?.let { idImagenRegex.find(it)?.groupValues?.get(1) }
 
-    private fun numeroDeCapitulo(articulo: Element): String? {
-        val texto = articulo.selectFirst("div.bg-line")?.text()?.trim() ?: return null
-        if (!texto.contains("episodio", ignoreCase = true)) return null
-        return numeroRegex.find(texto)?.groupValues?.get(1)
-    }
 
     private fun posterDeTarjeta(articulo: Element): String? {
         val imagenes = articulo.select("img").map { it.attr("src") }.filter { it.isNotBlank() }

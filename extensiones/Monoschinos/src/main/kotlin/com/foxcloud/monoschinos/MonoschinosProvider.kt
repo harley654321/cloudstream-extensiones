@@ -1,7 +1,6 @@
 package com.foxcloud.monoschinos
 
 import android.util.Base64
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.HomePageResponse
 import com.lagradost.cloudstream3.LoadResponse
@@ -34,8 +33,6 @@ import java.net.URLEncoder
  * - El sitio guarda dos imagenes por obra: "portada" (apaisada, la de la fila
  *   de capitulos) e "imagen" (vertical, la del buscador y el directorio). Aqui
  *   se usa siempre la vertical, que es la que da la ficha.
- * - El numero de episodio de la portada es CSS, no existe en la imagen, asi que
- *   la fila "Ultimos capitulos" usa portadas compuestas en el repo (caps/ms).
  * - La red del sitio falla a ratos: toda peticion se reintenta hasta 3 veces.
  */
 class MonoschinosProvider : MainAPI() {
@@ -62,26 +59,10 @@ class MonoschinosProvider : MainAPI() {
         mainUrl + "/animes?genero%5B%5D=latino&p=" to "Latino"
     )
 
-    private val mapper = ObjectMapper()
-    private val episodioEnUrl = Regex("""-episodio-(\d+)""")
 
     private companion object {
-        /** Portadas compuestas con la etiqueta del capitulo (repo del proyecto). */
-        const val CAPS_BASE =
-            "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/caps/ms"
-
-        /** Igual que DISENO en .github/scripts/caps_ms.py. */
-        const val CAPS_VER = "2"
-        const val CAPS_TTL = 60 * 60 * 1000L
-
         /** El sitio corta conexiones a ratos: se reintenta antes de rendirse. */
         const val REINTENTOS = 3
-
-        @Volatile
-        private var capsCache: Map<String, String>? = null
-
-        @Volatile
-        private var capsCacheAt = 0L
     }
 
     // ------------------------------------------------------------- red
@@ -281,33 +262,6 @@ class MonoschinosProvider : MainAPI() {
     // -------------------------------------------------------- tarjetas
 
     /**
-     * Indice del repo: claves con portada compuesta y, para las que no se
-     * pudieron componer, la direccion de su portada vertical (campo _cover).
-     * Se refresca cada hora.
-     */
-    private suspend fun indiceCaps(): Map<String, String> {
-        val ahora = System.currentTimeMillis()
-        capsCache?.let { if (ahora - capsCacheAt < CAPS_TTL) return it }
-        val nuevo = runCatching {
-            val raiz = mapper.readTree(app.get("$CAPS_BASE/index.json?v=$CAPS_VER").text)
-            val salida = mutableMapOf<String, String>()
-            raiz.fieldNames().forEach { campo ->
-                if (!campo.startsWith("_")) salida[campo] = ""
-            }
-            raiz.get("_cover")?.fields()?.forEach { (clave, valor) ->
-                if (!salida.containsKey(clave)) salida[clave] = valor.asText()
-            }
-            salida
-        }.getOrNull()
-        if (nuevo != null) {
-            capsCache = nuevo
-            capsCacheAt = ahora
-            return nuevo
-        }
-        return capsCache ?: emptyMap()
-    }
-
-    /**
      * Algunas obras no siguen el patron <slug>-<id> en la imagen vertical (hay
      * -T1- y -T2-), asi que esto es solo un respaldo: lo normal es que la
      * tarjeta use la portada compuesta del repo, que ya sale de la ficha.
@@ -320,11 +274,10 @@ class MonoschinosProvider : MainAPI() {
             m.groupValues[2] + ".jpg.webp" + cola
     }
 
-    /** Fila "Ultimos capitulos": una tarjeta por obra, con su numero en la portada. */
+    /** Fila "Ultimos capitulos": una tarjeta por obra, con su portada vertical. */
     private suspend fun Document.tarjetasCapitulos(): List<SearchResponse> {
         val salida = mutableListOf<SearchResponse>()
         val vistos = mutableSetOf<String>()
-        val indice = indiceCaps()
 
         // Solo esa seccion: el resto de la portada tiene enlaces /ver/ del hero
         // que repetian la misma obra con titulos cortados.
@@ -343,19 +296,9 @@ class MonoschinosProvider : MainAPI() {
             val obra = href.substringAfter("/ver/").replace(Regex("-episodio-\\d+.*$"), "")
             if (!vistos.add(obra)) return@forEach
 
-            val numero = episodioEnUrl.find(href)?.groupValues?.get(1) ?: "1"
-            val clave = obra + "-" + numero
-            // Portada compuesta si existe; si no, la vertical que guarda el
-            // indice como respaldo; y si tampoco, la de la propia tarjeta.
-            val respaldo = indice[clave]
-            val poster = when {
-                indice.containsKey(clave) && respaldo.isNullOrEmpty() ->
-                    "$CAPS_BASE/$clave.jpg?v=$CAPS_VER"
-                !respaldo.isNullOrEmpty() -> respaldo
-                else -> enlace.selectFirst("img")?.let { img ->
-                    val sitio = img.attr("data-src").ifBlank { img.attr("src") }
-                    if (sitio.startsWith("http")) retrato(sitio) else null
-                }
+            val poster = enlace.selectFirst("img")?.let { img ->
+                val sitio = img.attr("data-src").ifBlank { img.attr("src") }
+                if (sitio.startsWith("http")) retrato(sitio) else null
             }
 
             salida.add(newAnimeSearchResponse(titulo, href, TvType.Anime) { this.posterUrl = poster })
