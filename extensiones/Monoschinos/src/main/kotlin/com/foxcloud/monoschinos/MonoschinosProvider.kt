@@ -1,6 +1,7 @@
 package com.foxcloud.monoschinos
 
 import android.util.Base64
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.HomePageResponse
 import com.lagradost.cloudstream3.LoadResponse
@@ -18,6 +19,7 @@ import com.lagradost.cloudstream3.newTvSeriesLoadResponse
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
 
 /**
  * Monoschinos (monoschinos.st): anime, donghua y peliculas, con audio original
@@ -55,6 +57,53 @@ class MonoschinosProvider : MainAPI() {
         mainUrl + "/animes?genero%5B%5D=accion&p=" to "Accion",
         mainUrl + "/animes?genero%5B%5D=latino&p=" to "Latino"
     )
+
+    private val mapper = ObjectMapper()
+
+    private companion object {
+        /** Portadas ya compuestas con la etiqueta del capitulo. */
+        const val CAPS_BASE =
+            "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/caps/ms"
+
+        /** Igual que DISENO en .github/scripts/caps_ms.py. */
+        const val CAPS_VER = "1"
+        const val CAPS_TTL = 60 * 60 * 1000L
+
+        @Volatile
+        private var capsCache: Set<String>? = null
+
+        @Volatile
+        private var capsCacheAt = 0L
+    }
+
+    /** Claves de portadas compuestas disponibles (se refresca cada hora). */
+    private suspend fun capsDisponibles(): Set<String> {
+        val ahora = System.currentTimeMillis()
+        capsCache?.let { if (ahora - capsCacheAt < CAPS_TTL) return it }
+        val nuevo = runCatching {
+            mapper.readTree(app.get("$CAPS_BASE/index.json?v=$CAPS_VER").text).fieldNames()
+                .asSequence().filter { !it.startsWith("_") }.toSet()
+        }.getOrNull()
+        if (nuevo != null) {
+            capsCache = nuevo
+            capsCacheAt = ahora
+            return nuevo
+        }
+        return capsCache ?: emptySet()
+    }
+
+    /**
+     * El sitio guarda dos imagenes por obra: "portada" (760x428, apaisada, la de
+     * la fila de capitulos) e "imagen" (vertical, la del buscador y el
+     * directorio). Se usa siempre la vertical para que la tarjeta se vea igual
+     * en toda la app.
+     */
+    private fun retrato(url: String): String {
+        val m = Regex("""/portada/(.+?)-portada-(\d+)\.jpg""").find(url) ?: return url
+        val cola = if (url.contains("?")) "?v=6" else ""
+        return mainUrl + "/assets/thumbs/imagen/" + m.groupValues[1] + "-" +
+            m.groupValues[2] + ".jpg.webp" + cola
+    }
 
     private val anioRegex = Regex("""(19|20)\d{2}""")
     private val episodioEnUrl = Regex("""-episodio-(\d+)""")
@@ -168,16 +217,18 @@ class MonoschinosProvider : MainAPI() {
             val crudo = m.groupValues[2]
             val enlace = if (crudo.startsWith("http")) crudo else mainUrl + "/" + crudo.trimStart('/')
             val miniatura = m.groupValues[3].takeIf { it.isNotEmpty() }?.let {
-                if (it.startsWith("http")) it else mainUrl + "/" + it.trimStart('/')
+                val completo = if (it.startsWith("http")) it else mainUrl + "/" + it.trimStart('/')
+                retrato(completo)
             }
             if (!enlace.contains("/ver/")) null else Triple(numero, enlace, miniatura)
         }.toList()
     }
 
-    /** Portada: tarjetas de capitulo reciente, con portada y numero de episodio. */
-    private fun Document.tarjetasCapitulos(): List<SearchResponse> {
+    /** Portada: tarjetas de capitulo reciente, con portada y etiqueta de episodio. */
+    private suspend fun Document.tarjetasCapitulos(): List<SearchResponse> {
         val salida = mutableListOf<SearchResponse>()
         val vistos = mutableSetOf<String>()
+        val compuestas = capsDisponibles()
 
         // Solo la seccion "Ultimos capitulos": el resto de la portada tiene otros
         // enlaces (/ver/ del hero) que repetian la misma obra con titulos cortados.
@@ -196,14 +247,19 @@ class MonoschinosProvider : MainAPI() {
             val obra = href.substringAfter("/ver/").replace(Regex("-episodio-\\d+.*$"), "")
             if (!vistos.add(obra)) return@forEach
 
-            val poster = enlace.selectFirst("img")?.let { img ->
+            val sitio = enlace.selectFirst("img")?.let { img ->
                 (img.attr("data-src").ifBlank { img.attr("src") })
                     .takeIf { it.startsWith("http") && !it.contains("/img/anime.png") }
             }
-            val numero = episodioEnUrl.find(href)?.groupValues?.get(1)
-            val nombre = if (numero != null) "Ep " + numero + " \u00b7 " + titulo else titulo
+            val numero = episodioEnUrl.find(href)?.groupValues?.get(1) ?: "1"
+            val clave = obra + "-" + numero
+            val poster = if (compuestas.contains(clave)) {
+                "$CAPS_BASE/$clave.jpg?v=$CAPS_VER"
+            } else {
+                sitio?.let { retrato(it) }
+            }
 
-            salida.add(newAnimeSearchResponse(nombre, href, TvType.Anime) { this.posterUrl = poster })
+            salida.add(newAnimeSearchResponse(titulo, href, TvType.Anime) { this.posterUrl = poster })
         }
         return salida
     }

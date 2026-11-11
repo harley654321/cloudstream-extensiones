@@ -13,6 +13,7 @@ on:
     branches: [main]
     paths:
       - ".github/scripts/caps.py"
+      - ".github/scripts/caps_ms.py"
       - ".github/workflows/caps.yml"
 
 permissions:
@@ -39,8 +40,11 @@ jobs:
       - name: Dependencias
         run: pip install --quiet --disable-pip-version-check pillow requests
 
-      - name: Generar portadas
+      - name: Generar portadas (AnimeAV1)
         run: python3 .github/scripts/caps.py
+
+      - name: Generar portadas (Monoschinos)
+        run: python3 .github/scripts/caps_ms.py
 
       - name: Publicar cambios
         run: |
