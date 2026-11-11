@@ -69,11 +69,12 @@ class MundoDonghuaProvider : MainAPI() {
     private companion object {
         const val REINTENTOS = 3
 
-        /** Tope para resolver un episodio entero. */
+        /**
+         * Tope duro para resolver un episodio entero. Pasado este tiempo se
+         * corta todo, aunque algun reproductor siga intentandolo: nunca se deja
+         * la obra cargando sin fin.
+         */
         const val TOTAL_MS = 15_000L
-
-        /** Tope por reproductor, todos en paralelo. */
-        const val POR_HOST_MS = 12_000L
         val PACKER = Regex(
             """eval\(function\(p,a,c,k,e,d\).*?\}\('((?:[^'\\]|\\.)*)',(\d+),(\d+),'((?:[^'\\]|\\.)*)'\.split\('\|'\)""",
             RegexOption.DOT_MATCHES_ALL
@@ -251,11 +252,9 @@ class MundoDonghuaProvider : MainAPI() {
                 servidores.map { embed ->
                     async {
                         runCatching {
-                            withTimeoutOrNull(POR_HOST_MS) {
-                                loadExtractor(embed, data, subtitleCallback) { enlace ->
-                                    encontrado.set(true)
-                                    callback(enlace)
-                                }
+                            loadExtractor(embed, data, subtitleCallback) { enlace ->
+                                encontrado.set(true)
+                                callback(enlace)
                             }
                         }
                     }
