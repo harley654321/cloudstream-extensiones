@@ -466,7 +466,7 @@ class DonghuaLifeProvider : MainAPI() {
                         if (direccion.startsWith("$mainUrl/")) {
                             encontrado.set(true)
                             callback(
-                                newExtractorLink("DonghuaLife · $etiqueta", direccion, ExtractorLinkType.M3U8) {
+                                newExtractorLink("DonghuaLife · $etiqueta", "DonghuaLife", direccion, ExtractorLinkType.M3U8) {
                                     this.referer = data
                                     this.quality = Qualities.Unknown.value
                                 }
