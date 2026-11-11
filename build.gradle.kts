@@ -75,9 +75,14 @@ subprojects {
 
     dependencies {
         val implementation by configurations
+        val compileOnly by configurations
 
         // Stubs de la API de CloudStream 4.9.1 (version estable publicada).
         implementation("com.github.recloudstream.cloudstream:library:4.9.1")
+
+        // Corrutinas: la app las trae dentro, aqui solo hacen falta para
+        // compilar (parallelismo y topes de tiempo). No se empaquetan.
+        compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
 
         // Dependencias incluidas tambien por la app: no engordan el .cs3.
         implementation(kotlin("stdlib"))
