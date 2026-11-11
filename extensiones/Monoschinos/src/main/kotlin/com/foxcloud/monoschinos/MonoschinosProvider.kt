@@ -78,7 +78,7 @@ class MonoschinosProvider : MainAPI() {
         const val REINTENTOS = 3
 
         @Volatile
-        private var capsCache: Set<String>? = null
+        private var capsCache: Map<String, String>? = null
 
         @Volatile
         private var capsCacheAt = 0L
@@ -225,20 +225,31 @@ class MonoschinosProvider : MainAPI() {
 
     // -------------------------------------------------------- tarjetas
 
-    /** Claves de portadas compuestas disponibles (se refresca cada hora). */
-    private suspend fun capsDisponibles(): Set<String> {
+    /**
+     * Indice del repo: claves con portada compuesta y, para las que no se
+     * pudieron componer, la direccion de su portada vertical (campo _cover).
+     * Se refresca cada hora.
+     */
+    private suspend fun indiceCaps(): Map<String, String> {
         val ahora = System.currentTimeMillis()
         capsCache?.let { if (ahora - capsCacheAt < CAPS_TTL) return it }
         val nuevo = runCatching {
-            mapper.readTree(app.get("$CAPS_BASE/index.json?v=$CAPS_VER").text).fieldNames()
-                .asSequence().filter { !it.startsWith("_") }.toSet()
+            val raiz = mapper.readTree(app.get("$CAPS_BASE/index.json?v=$CAPS_VER").text)
+            val salida = mutableMapOf<String, String>()
+            raiz.fieldNames().forEach { campo ->
+                if (!campo.startsWith("_")) salida[campo] = ""
+            }
+            raiz.get("_cover")?.fields()?.forEach { (clave, valor) ->
+                if (!salida.containsKey(clave)) salida[clave] = valor.asText()
+            }
+            salida
         }.getOrNull()
         if (nuevo != null) {
             capsCache = nuevo
             capsCacheAt = ahora
             return nuevo
         }
-        return capsCache ?: emptySet()
+        return capsCache ?: emptyMap()
     }
 
     /**
@@ -258,7 +269,7 @@ class MonoschinosProvider : MainAPI() {
     private suspend fun Document.tarjetasCapitulos(): List<SearchResponse> {
         val salida = mutableListOf<SearchResponse>()
         val vistos = mutableSetOf<String>()
-        val compuestas = capsDisponibles()
+        val indice = indiceCaps()
 
         // Solo esa seccion: el resto de la portada tiene enlaces /ver/ del hero
         // que repetian la misma obra con titulos cortados.
@@ -279,10 +290,14 @@ class MonoschinosProvider : MainAPI() {
 
             val numero = episodioEnUrl.find(href)?.groupValues?.get(1) ?: "1"
             val clave = obra + "-" + numero
-            val poster = if (compuestas.contains(clave)) {
-                "$CAPS_BASE/$clave.jpg?v=$CAPS_VER"
-            } else {
-                enlace.selectFirst("img")?.let { img ->
+            // Portada compuesta si existe; si no, la vertical que guarda el
+            // indice como respaldo; y si tampoco, la de la propia tarjeta.
+            val respaldo = indice[clave]
+            val poster = when {
+                indice.containsKey(clave) && respaldo.isNullOrEmpty() ->
+                    "$CAPS_BASE/$clave.jpg?v=$CAPS_VER"
+                !respaldo.isNullOrEmpty() -> respaldo
+                else -> enlace.selectFirst("img")?.let { img ->
                     val sitio = img.attr("data-src").ifBlank { img.attr("src") }
                     if (sitio.startsWith("http")) retrato(sitio) else null
                 }

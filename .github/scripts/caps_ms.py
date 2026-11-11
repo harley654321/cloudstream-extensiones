@@ -166,33 +166,51 @@ def main() -> int:
         print("No se encontraron capitulos recientes", file=sys.stderr)
         return 1
     os.makedirs(SALIDA, exist_ok=True)
-    indice = {"_diseno": DISENO}
+
+    # El sitio a veces corta peticiones: lo que ya estaba hecho no se toca y el
+    # indice no se vacia. Las portadas que no se puedan componer guardan aqui su
+    # direccion real para que la app nunca enseñe un hueco vacio.
+    previo = {}
+    ruta_indice = os.path.join(SALIDA, "index.json")
+    if os.path.exists(ruta_indice):
+        try:
+            previo = json.load(open(ruta_indice, encoding="utf-8"))
+        except Exception:
+            previo = {}
+
+    indice = {"_diseno": DISENO, "_cover": dict(previo.get("_cover", {}))}
     hechos = 0
     for it in items:
         clave = "{}-{}".format(it["obra"], it["cap"])
         destino = os.path.join(SALIDA, clave + ".jpg")
         indice[clave] = it["titulo"]
         if os.path.exists(destino):
+            indice["_cover"].pop(clave, None)
             continue
+        cover = portada_ficha(s, it["episodio"]) or it["imagen"]
         try:
-            cover = portada_ficha(s, it["episodio"]) or it["imagen"]
             r = s.get(cover, timeout=60)
             if r.status_code != 200:
-                print("  sin imagen {} ({})".format(clave, r.status_code), file=sys.stderr)
-                continue
+                raise IOError(r.status_code)
             componer(r.content, it["cap"]).save(destino, "JPEG", quality=88)
+            indice["_cover"].pop(clave, None)
             hechos += 1
         except Exception as e:  # noqa: BLE001
-            print("  fallo {}: {}".format(clave, e), file=sys.stderr)
+            print("  sin componer {} ({}): se guarda su portada".format(clave, e), file=sys.stderr)
+            indice["_cover"][clave] = cover
 
-    # fuera las portadas de capitulos que ya no estan en la fila
+    # lo que ya estaba compuesto y sigue en disco se conserva en el indice
     for fichero in os.listdir(SALIDA):
-        if fichero.endswith(".jpg") and fichero[:-4] not in indice:
-            os.remove(os.path.join(SALIDA, fichero))
+        if not fichero.endswith(".jpg"):
+            continue
+        clave = fichero[:-4]
+        if clave not in indice:
+            indice[clave] = previo.get(clave, "")
 
-    with open(os.path.join(SALIDA, "index.json"), "w", encoding="utf-8") as f:
+    with open(ruta_indice, "w", encoding="utf-8") as f:
         json.dump(indice, f, ensure_ascii=False, indent=1, sort_keys=True)
-    print("Portadas: {} nuevas, {} en el indice".format(hechos, len(indice) - 1))
+    print("Portadas: {} nuevas, {} compuestas, {} de respaldo".format(
+        hechos, len(indice) - 2 - len(indice["_cover"]), len(indice["_cover"])))
     return 0
 
 
