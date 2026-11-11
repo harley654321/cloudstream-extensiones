@@ -5,24 +5,8 @@
       "hash": "8b6ff053d0e934064aebb957c2c1251d8b4a938aa45e27bba6f17132d9df83d2"
     },
     "AnimeAV1": {
-      "version": 13,
-      "hash": "eed8006ca1fcceecbbc70929f22cd00241142d083013d509da589ad211edf3e5"
-    },
-    "Cinecalidad": {
-      "version": 8,
-      "hash": "d6a0e21b06a3f0f55405c75cc990b20e1f992c569c1636f106caad70cafc87b8"
-    },
-    "Cineplus123": {
-      "version": 9,
-      "hash": "c32a3f8a55bcf7857880f252f4b3adc7dfd582676329fca635a217d316ccfe89"
-    },
-    "FoxResolvedores": {
-      "version": 5,
-      "hash": "0df12ca1ecee75f6dc6ae54b10e320bbb4765ccc67c81560844b15b1478b5b16"
-    },
-    "Monoschinos": {
-      "version": 4,
-      "hash": "1431b947242ed396ecaf7bfa1095669d23570c125008fb325949a921981aa9a0"
+      "version": 7,
+      "hash": "3c666fe106a98b076ae1a05ea84f96be082faaa06cfc59eb2abf92cb5bdabb9a"
     }
   }
 }

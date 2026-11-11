@@ -19,6 +19,7 @@ import json
 import os
 import re
 import sys
+import time
 
 import requests
 from PIL import Image, ImageDraw, ImageFont
@@ -60,6 +61,35 @@ def retrato(url: str) -> str:
     return url
 
 
+def con_reintentos(s: requests.Session, url: str, intentos: int = 3) -> str | None:
+    for i in range(intentos):
+        try:
+            r = s.get(url, timeout=60)
+            if r.status_code == 200:
+                return r.text
+        except Exception:  # noqa: BLE001
+            pass
+        time.sleep(0.6 * (i + 1))
+    return None
+
+
+def portada_ficha(s: requests.Session, episodio: str) -> str | None:
+    """La portada buena es la vertical de la ficha: es la misma que muestran el
+    buscador y el directorio. No siempre se puede deducir de la fila (hay obras
+    con -T1-/-T2- en el nombre), asi que se lee de la ficha del anime."""
+    pagina = con_reintentos(s, episodio)
+    if not pagina:
+        return None
+    m = re.search(r'href="(https://monoschinos\.st/anime/[^"]+)"', pagina)
+    if not m:
+        return None
+    ficha = con_reintentos(s, m.group(1))
+    if not ficha:
+        return None
+    imagenes = re.findall(r'(https://monoschinos\.st/assets/thumbs/imagen/[^"]+)', ficha)
+    return imagenes[0] if imagenes else None
+
+
 def recientes(s: requests.Session) -> list[dict]:
     html = s.get(BASE + "/", timeout=60).content.decode("utf-8", "replace")
     # la seccion de "Ultimos capitulos" es la unica con enlaces /ver/ y .card-title
@@ -88,6 +118,7 @@ def recientes(s: requests.Session) -> list[dict]:
             "cap": m_ep.group(1) if m_ep else "1",
             "titulo": titulo,
             "imagen": retrato(m_img.group(1)),
+            "episodio": href if href.startswith("http") else BASE + href,
             "url": href,
         })
     return salida
@@ -144,7 +175,8 @@ def main() -> int:
         if os.path.exists(destino):
             continue
         try:
-            r = s.get(it["imagen"], timeout=60)
+            cover = portada_ficha(s, it["episodio"]) or it["imagen"]
+            r = s.get(cover, timeout=60)
             if r.status_code != 200:
                 print("  sin imagen {} ({})".format(clave, r.status_code), file=sys.stderr)
                 continue

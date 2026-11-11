@@ -18,8 +18,10 @@ import com.lagradost.cloudstream3.newHomePageResponse
 import com.lagradost.cloudstream3.newTvSeriesLoadResponse
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
+import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import java.net.URLEncoder
 
 /**
  * Monoschinos (monoschinos.st): anime, donghua y peliculas, con audio original
@@ -27,12 +29,14 @@ import org.jsoup.nodes.Element
  *
  * Detalles del sitio que hay que respetar:
  * - Todo va por ?p=N (portada, emision, catalogo y sus filtros).
- * - Los capitulos de una ficha se piden por AJAX (.caplist -> ajax_pagination ->
- *   caplist). Esos endpoints devuelven 403 si el User-Agent no es de navegador,
- *   asi que todas las peticiones llevan uno de Chrome.
- * - Los filtros son genero[] y categoria: pelicula, donghua, ova... y entre los
- *   generos estan "latino" y "castellano", que es como el sitio marca el doblaje.
- * - Los servidores de cada capitulo vienen en base64 dentro de button[data-player].
+ * - Los capitulos se piden por AJAX (.caplist -> ajax_pagination -> caplist).
+ *   Esos endpoints devuelven 403 si el User-Agent no es de navegador.
+ * - El sitio guarda dos imagenes por obra: "portada" (apaisada, la de la fila
+ *   de capitulos) e "imagen" (vertical, la del buscador y el directorio). Aqui
+ *   se usa siempre la vertical, que es la que da la ficha.
+ * - El numero de episodio de la portada es CSS, no existe en la imagen, asi que
+ *   la fila "Ultimos capitulos" usa portadas compuestas en el repo (caps/ms).
+ * - La red del sitio falla a ratos: toda peticion se reintenta hasta 3 veces.
  */
 class MonoschinosProvider : MainAPI() {
     override var mainUrl = "https://monoschinos.st"
@@ -59,15 +63,19 @@ class MonoschinosProvider : MainAPI() {
     )
 
     private val mapper = ObjectMapper()
+    private val episodioEnUrl = Regex("""-episodio-(\d+)""")
 
     private companion object {
-        /** Portadas ya compuestas con la etiqueta del capitulo. */
+        /** Portadas compuestas con la etiqueta del capitulo (repo del proyecto). */
         const val CAPS_BASE =
             "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/caps/ms"
 
         /** Igual que DISENO en .github/scripts/caps_ms.py. */
         const val CAPS_VER = "1"
         const val CAPS_TTL = 60 * 60 * 1000L
+
+        /** El sitio corta conexiones a ratos: se reintenta antes de rendirse. */
+        const val REINTENTOS = 3
 
         @Volatile
         private var capsCache: Set<String>? = null
@@ -76,66 +84,59 @@ class MonoschinosProvider : MainAPI() {
         private var capsCacheAt = 0L
     }
 
-    /** Claves de portadas compuestas disponibles (se refresca cada hora). */
-    private suspend fun capsDisponibles(): Set<String> {
-        val ahora = System.currentTimeMillis()
-        capsCache?.let { if (ahora - capsCacheAt < CAPS_TTL) return it }
-        val nuevo = runCatching {
-            mapper.readTree(app.get("$CAPS_BASE/index.json?v=$CAPS_VER").text).fieldNames()
-                .asSequence().filter { !it.startsWith("_") }.toSet()
-        }.getOrNull()
-        if (nuevo != null) {
-            capsCache = nuevo
-            capsCacheAt = ahora
-            return nuevo
+    // ------------------------------------------------------------- red
+
+    private suspend fun pedir(url: String, referer: String? = null): String? {
+        repeat(REINTENTOS) { intento ->
+            runCatching { return app.get(url, headers = cabeceras, referer = referer).text }
+            // Sin kotlinx.coroutines en el classpath de la extension: espera corta
+            // entre intentos, suficiente para que el sitio se recupere del corte.
+            if (intento < REINTENTOS - 1) Thread.sleep(500L * (intento + 1))
         }
-        return capsCache ?: emptySet()
+        return null
     }
 
-    /**
-     * El sitio guarda dos imagenes por obra: "portada" (760x428, apaisada, la de
-     * la fila de capitulos) e "imagen" (vertical, la del buscador y el
-     * directorio). Se usa siempre la vertical para que la tarjeta se vea igual
-     * en toda la app.
-     */
-    private fun retrato(url: String): String {
-        val m = Regex("""/portada/(.+?)-portada-(\d+)\.jpg""").find(url) ?: return url
-        val cola = if (url.contains("?")) "?v=6" else ""
-        return mainUrl + "/assets/thumbs/imagen/" + m.groupValues[1] + "-" +
-            m.groupValues[2] + ".jpg.webp" + cola
+    private suspend fun documento(url: String, referer: String? = null): Document? {
+        val texto = pedir(url, referer) ?: return null
+        return runCatching { Jsoup.parse(texto, url) }.getOrNull()
     }
 
-    private val anioRegex = Regex("""(19|20)\d{2}""")
-    private val episodioEnUrl = Regex("""-episodio-(\d+)""")
+    // --------------------------------------------------------- portada
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val portada = request.data == mainUrl + "/"
-        val url = if (portada) mainUrl else request.data + page
-        val doc = app.get(url, headers = cabeceras).document
-        val items = if (portada) doc.tarjetasCapitulos() else doc.tarjetas()
-        return newHomePageResponse(request, items, !portada && items.isNotEmpty())
+        val esPortada = request.data == "$mainUrl/"
+        val url = if (esPortada) mainUrl else request.data + page
+        val doc = documento(url) ?: return newHomePageResponse(request, emptyList(), false)
+        val items = if (esPortada) doc.tarjetasCapitulos() else doc.tarjetas()
+        return newHomePageResponse(request, items, !esPortada && items.isNotEmpty())
     }
 
     override suspend fun search(query: String): List<SearchResponse>? {
-        val doc = app.get("$mainUrl/buscar", params = mapOf("q" to query), headers = cabeceras).document
+        val buscado = URLEncoder.encode(query, "UTF-8")
+        val doc = documento("$mainUrl/buscar?q=$buscado") ?: return emptyList()
         return doc.tarjetas()
     }
+
+    // ----------------------------------------------------------- ficha
 
     override suspend fun load(url: String): LoadResponse? {
         // Los items de "Ultimos capitulos" apuntan al capitulo: se sube a su ficha.
         var ficha = url
         if (url.contains("/ver/")) {
-            val capitulo = app.get(url, headers = cabeceras).document
+            val capitulo = documento(url) ?: return null
             val enlace = capitulo.selectFirst("a[href*='/anime/']")?.attr("href") ?: return null
             ficha = if (enlace.startsWith("http")) enlace else mainUrl + enlace
         }
 
-        val doc = app.get(ficha, headers = cabeceras).document
+        val doc = documento(ficha) ?: return null
         val titulo = doc.selectFirst("h1")?.text()?.trim() ?: return null
 
-        val poster = doc.select("img").mapNotNull { img ->
+        val imagenes = doc.select("img").mapNotNull { img ->
             (img.attr("data-src").ifBlank { img.attr("src") }).takeIf { it.startsWith("http") }
-        }.firstOrNull { it.contains("/assets/thumbs/") && !it.contains("capblank") }
+        }
+        // La vertical de la ficha es la misma que se ve en buscador y directorio.
+        val poster = imagenes.firstOrNull { it.contains("/assets/thumbs/imagen/") && !it.contains("capblank") }
+            ?: imagenes.firstOrNull { it.contains("/assets/thumbs/") && !it.contains("capblank") }
 
         val sinopsis = doc.select("#tab-info p").map { it.text().trim() }
             .firstOrNull { it.length > 60 }
@@ -143,10 +144,11 @@ class MonoschinosProvider : MainAPI() {
         val generos = doc.select("a[href*='/genero']").map { it.text().trim() }
             .filter { it.isNotEmpty() }.distinct()
 
-        val anio = anioRegex.find(doc.selectFirst("#tab-info")?.text().orEmpty())?.value?.toIntOrNull()
+        val anio = Regex("""(19|20)\d{2}""")
+            .find(doc.selectFirst("#tab-info")?.text().orEmpty())?.value?.toIntOrNull()
         val idioma = idiomaDe(generos)
 
-        val episodios = capitulos(doc, idioma)
+        val episodios = capitulos(doc, idioma, poster)
 
         return newTvSeriesLoadResponse(titulo, ficha, TvType.Anime, episodios) {
             this.posterUrl = poster
@@ -166,7 +168,9 @@ class MonoschinosProvider : MainAPI() {
         }
     }
 
-    private suspend fun capitulos(doc: Document, idioma: String): List<Episode> {
+    // ------------------------------------------------------- capitulos
+
+    private suspend fun capitulos(doc: Document, idioma: String, portada: String?): List<Episode> {
         val ajax = doc.selectFirst(".caplist")?.attr("data-ajax")?.takeIf { it.startsWith("http") }
             ?: return emptyList()
         val listado = primeraPaginacion(ajax) ?: return emptyList()
@@ -176,19 +180,21 @@ class MonoschinosProvider : MainAPI() {
         var pagina = 1
         while (pagina <= 60) {
             val destino = if (pagina == 1) listado else "$listado?p=$pagina"
-            val cuerpo = runCatching { app.get(destino, headers = cabeceras).text }.getOrNull() ?: break
+            val cuerpo = pedir(destino, referer = listado) ?: break
 
             val caps = capsDe(cuerpo)
             if (caps.isEmpty()) break
             if (pagina == 1 && caps.firstOrNull()?.first == 0) desplazamiento = 1
-            caps.forEach { (numero, enlace, miniatura) ->
+            caps.forEach { (numero, enlace) ->
                 if (salida.any { it.data == "$enlace#$idioma" }) return@forEach
                 val n = numero + desplazamiento
                 salida.add(
                     newEpisode("$enlace#$idioma") {
                         this.name = "Episodio " + n
                         this.episode = n
-                        this.posterUrl = miniatura
+                        // El sitio no tiene captura por capitulo: usa la portada
+                        // de la obra en todos, igual que hace la web.
+                        this.posterUrl = portada
                     }
                 )
             }
@@ -198,40 +204,64 @@ class MonoschinosProvider : MainAPI() {
         return salida
     }
 
-    /** ajax_pagination devuelve {"paginate_url": ".../ajax/caplist/<id>", ...}. */
+    /** ajax_pagination responde {"paginate_url": ".../ajax/caplist/<id>", ...}. */
     private suspend fun primeraPaginacion(ajax: String): String? {
-        val meta = runCatching { app.get(ajax, headers = cabeceras).text }.getOrNull() ?: return null
+        val meta = pedir(ajax) ?: return null
         val limpio = meta.replace("\\/", "/")
-        return Regex(""""paginate_url"\s*:\s*"([^"]+)"""").find(limpio)?.groupValues?.get(1)
+        return Regex(""""paginate_url\s*:\s*"([^"]+)"""").find(limpio)?.groupValues?.get(1)
     }
 
-    private fun capsDe(json: String): List<Triple<Int, String, String?>> {
+    /** Lee "caps":[{"episodio":N,"url":"..."}] sin depender de modelos. */
+    private fun capsDe(json: String): List<Pair<Int, String>> {
         val limpio = json.replace("\\/", "/")
-        val regex = Regex(
-            "\"episodio\"\\s*:\\s*(\\d+)\\s*,\\s*\"url\"\\s*:\\s*\"([^\"]+)\"(?:" +
-                "\\s*,\\s*\"thumb\"\\s*:\\s*\"([^\"]+)\")?"
-        )
+        val regex = Regex("\"episodio\"\\s*:\\s*(\\d+)\\s*,\\s*\"url\"\\s*:\\s*\"([^\"]+)\"")
         return regex.findAll(limpio).mapNotNull { m ->
             val numero = m.groupValues[1].toIntOrNull() ?: 0
-            // Unos listados dan la url absoluta y otros relativa (/ver/...).
             val crudo = m.groupValues[2]
             val enlace = if (crudo.startsWith("http")) crudo else mainUrl + "/" + crudo.trimStart('/')
-            val miniatura = m.groupValues[3].takeIf { it.isNotEmpty() }?.let {
-                val completo = if (it.startsWith("http")) it else mainUrl + "/" + it.trimStart('/')
-                retrato(completo)
-            }
-            if (!enlace.contains("/ver/")) null else Triple(numero, enlace, miniatura)
+            if (enlace.contains("/ver/")) numero to enlace else null
         }.toList()
     }
 
-    /** Portada: tarjetas de capitulo reciente, con portada y etiqueta de episodio. */
+    // -------------------------------------------------------- tarjetas
+
+    /** Claves de portadas compuestas disponibles (se refresca cada hora). */
+    private suspend fun capsDisponibles(): Set<String> {
+        val ahora = System.currentTimeMillis()
+        capsCache?.let { if (ahora - capsCacheAt < CAPS_TTL) return it }
+        val nuevo = runCatching {
+            mapper.readTree(app.get("$CAPS_BASE/index.json?v=$CAPS_VER").text).fieldNames()
+                .asSequence().filter { !it.startsWith("_") }.toSet()
+        }.getOrNull()
+        if (nuevo != null) {
+            capsCache = nuevo
+            capsCacheAt = ahora
+            return nuevo
+        }
+        return capsCache ?: emptySet()
+    }
+
+    /**
+     * Algunas obras no siguen el patron <slug>-<id> en la imagen vertical (hay
+     * -T1- y -T2-), asi que esto es solo un respaldo: lo normal es que la
+     * tarjeta use la portada compuesta del repo, que ya sale de la ficha.
+     */
+    private fun retrato(url: String): String {
+        if (url.contains("/assets/thumbs/imagen/")) return url
+        val m = Regex("""/portada/(.+?)-portada-(\d+)\.jpg""").find(url) ?: return url
+        val cola = if (url.contains("?")) "?v=6" else ""
+        return mainUrl + "/assets/thumbs/imagen/" + m.groupValues[1] + "-" +
+            m.groupValues[2] + ".jpg.webp" + cola
+    }
+
+    /** Fila "Ultimos capitulos": una tarjeta por obra, con su numero en la portada. */
     private suspend fun Document.tarjetasCapitulos(): List<SearchResponse> {
         val salida = mutableListOf<SearchResponse>()
         val vistos = mutableSetOf<String>()
         val compuestas = capsDisponibles()
 
-        // Solo la seccion "Ultimos capitulos": el resto de la portada tiene otros
-        // enlaces (/ver/ del hero) que repetian la misma obra con titulos cortados.
+        // Solo esa seccion: el resto de la portada tiene enlaces /ver/ del hero
+        // que repetian la misma obra con titulos cortados.
         val seccion = select("section").firstOrNull { s ->
             s.selectFirst("h2")?.text()?.contains("ltimos cap", ignoreCase = true) == true
         } ?: return salida
@@ -247,16 +277,15 @@ class MonoschinosProvider : MainAPI() {
             val obra = href.substringAfter("/ver/").replace(Regex("-episodio-\\d+.*$"), "")
             if (!vistos.add(obra)) return@forEach
 
-            val sitio = enlace.selectFirst("img")?.let { img ->
-                (img.attr("data-src").ifBlank { img.attr("src") })
-                    .takeIf { it.startsWith("http") && !it.contains("/img/anime.png") }
-            }
             val numero = episodioEnUrl.find(href)?.groupValues?.get(1) ?: "1"
             val clave = obra + "-" + numero
             val poster = if (compuestas.contains(clave)) {
                 "$CAPS_BASE/$clave.jpg?v=$CAPS_VER"
             } else {
-                sitio?.let { retrato(it) }
+                enlace.selectFirst("img")?.let { img ->
+                    val sitio = img.attr("data-src").ifBlank { img.attr("src") }
+                    if (sitio.startsWith("http")) retrato(sitio) else null
+                }
             }
 
             salida.add(newAnimeSearchResponse(titulo, href, TvType.Anime) { this.posterUrl = poster })
@@ -274,13 +303,15 @@ class MonoschinosProvider : MainAPI() {
             val completo = if (href.startsWith("http")) href else mainUrl + href
             if (salida.any { it.url == completo }) return@forEach
             val poster = enlace.selectFirst("img")?.let { img ->
-                (img.attr("data-src").ifBlank { img.attr("src") })
-                    .takeIf { it.startsWith("http") && !it.contains("/img/anime.png") }
+                val sitio = img.attr("data-src").ifBlank { img.attr("src") }
+                sitio.takeIf { it.startsWith("http") && !it.contains("/img/anime.png") }
             }
             salida.add(newAnimeSearchResponse(titulo, completo, TvType.Anime) { this.posterUrl = poster })
         }
         return salida
     }
+
+    // --------------------------------------------------------- enlaces
 
     override suspend fun loadLinks(
         data: String,
@@ -291,7 +322,7 @@ class MonoschinosProvider : MainAPI() {
         val enlaceCapitulo = data.substringBefore("#")
         val idioma = data.substringAfter("#", "SUB").ifBlank { "SUB" }
 
-        val doc = app.get(enlaceCapitulo, headers = cabeceras).document
+        val doc = documento(enlaceCapitulo) ?: return false
         var alguno = false
 
         doc.select("button[data-player]").forEach { boton ->
