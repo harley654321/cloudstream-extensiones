@@ -5,8 +5,8 @@
       "hash": "8b6ff053d0e934064aebb957c2c1251d8b4a938aa45e27bba6f17132d9df83d2"
     },
     "AnimeAV1": {
-      "version": 13,
-      "hash": "eed8006ca1fcceecbbc70929f22cd00241142d083013d509da589ad211edf3e5"
+      "version": 15,
+      "hash": "6c6f964ea5f8b1a0c0b0f803a9d69ac3da4d59609336906894116920235967ae"
     },
     "Cinecalidad": {
       "version": 8,
@@ -21,12 +21,12 @@
       "hash": "0df12ca1ecee75f6dc6ae54b10e320bbb4765ccc67c81560844b15b1478b5b16"
     },
     "Monoschinos": {
-      "version": 9,
-      "hash": "6e8b89bdcf71c54cd69e6b18dfab1dcea8cb890c9be91105b7737fb7f1043d5b"
+      "version": 11,
+      "hash": "6fbd4b6d2b84c5ff016c5054db32172c4d878a618ff11c14e493e701c54f7066"
     },
     "MundoDonghua": {
-      "version": 5,
-      "hash": "7ff7659f77ef14c579f8b29561b5bb9dad9c8f2cede3d7fbb44f7aebf6b30d1c"
+      "version": 7,
+      "hash": "d8c996ad2b9b248c2f0faf791bd8839ef7f7717b7a757870577b2a7347fe2c58"
     }
   }
 }

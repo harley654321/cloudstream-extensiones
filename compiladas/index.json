@@ -1,13 +1,13 @@
 {
   "repo": "https://github.com/harley654321/cloudstream-extensiones",
-  "generado": "2026-11-11T06:24:15Z",
+  "generado": "2026-11-11T06:43:18Z",
   "api": "CloudStream 4.9.1",
   "total": 7,
   "extensiones": [
     {
       "nombre": "AnimeAV1",
       "interno": "AnimeAV1",
-      "version": 13,
+      "version": 15,
       "status": 1,
       "autores": [
         "harley654321"
@@ -19,9 +19,9 @@
         "AnimeMovie",
         "OVA"
       ],
-      "bytes": 30917,
-      "hash": "sha256-3cad5d13f86dc18b6c09c49da27b868b6ca69a91c27cd0305244ed01a2e5d14a",
-      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/AnimeAV1-v13.cs3"
+      "bytes": 29369,
+      "hash": "sha256-fd4e9b0b372f49fad5b8151b1fda8b55dbb2f88631c925612c5db305b81de6fc",
+      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/AnimeAV1-v15.cs3"
     },
     {
       "nombre": "Cinecalidad",
@@ -80,7 +80,7 @@
     {
       "nombre": "Monoschinos",
       "interno": "Monoschinos",
-      "version": 9,
+      "version": 11,
       "status": 1,
       "autores": [
         "harley654321"
@@ -92,14 +92,14 @@
         "AnimeMovie",
         "OVA"
       ],
-      "bytes": 26112,
-      "hash": "sha256-a4137b36c8cfc49a9c645f45b2990a7ad70e436e3ac8c1b14208c298731b4284",
-      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/Monoschinos-v9.cs3"
+      "bytes": 23781,
+      "hash": "sha256-442f20425e5ac5c6de871ab72c9bb6f8fafb4b436e85e6740f1978bc6c9cf21b",
+      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/Monoschinos-v11.cs3"
     },
     {
       "nombre": "MundoDonghua",
       "interno": "MundoDonghua",
-      "version": 5,
+      "version": 7,
       "status": 1,
       "autores": [
         "harley654321"
@@ -111,9 +111,9 @@
         "AnimeMovie",
         "OVA"
       ],
-      "bytes": 25293,
-      "hash": "sha256-e032d2a73afb1b5b622e56cfa79899b6ccee2a5f256c5bffe70b4c2502047abe",
-      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/MundoDonghua-v5.cs3"
+      "bytes": 22307,
+      "hash": "sha256-86bfe912b9c9cd054d8082938429a1183f668e0688fa7784455410aad7567f09",
+      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/MundoDonghua-v7.cs3"
     },
     {
       "nombre": "PlantillaProvider",
