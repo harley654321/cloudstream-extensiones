@@ -80,7 +80,7 @@ class SeriesDonghuaProvider : MainAPI() {
         const val TOTAL_MS = 18_000L
 
         /** Servidores que ya no existen: no se les molesta. */
-        val MUERTOS = listOf("streambb", "likessb")
+        val MUERTOS = listOf("streambb", "streamsb", "likessb", "sbthe", "sbplay")
     }
 
     // ---------------------------------------------------------------- red

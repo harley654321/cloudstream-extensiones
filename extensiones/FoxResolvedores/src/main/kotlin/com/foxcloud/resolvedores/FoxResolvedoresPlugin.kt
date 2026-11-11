@@ -15,6 +15,8 @@ class FoxResolvedoresPlugin : BasePlugin() {
         registerExtractorAPI(UqloadFox())
         // OK.ru: la app busca una lista de mp4 que ya no existe; aqui va el HLS.
         registerExtractorAPI(OkRuFox())
+        // Rumble: el reproductor lleva las pistas mp4 dentro del propio HTML.
+        registerExtractorAPI(RumbleFox())
         // Filemoon es Byse por dentro (misma API y mismo sobre cifrado).
         registerExtractorAPI(ByseFox("https://filemoon.sx"))
         registerExtractorAPI(ByseFox("https://bysekoze.com"))
