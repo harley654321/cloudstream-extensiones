@@ -1,6 +1,6 @@
 {
   "repo": "https://github.com/harley654321/cloudstream-extensiones",
-  "generado": "2026-11-11T07:01:19Z",
+  "generado": "2026-11-11T07:13:37Z",
   "api": "CloudStream 4.9.1",
   "total": 7,
   "extensiones": [
@@ -99,7 +99,7 @@
     {
       "nombre": "MundoDonghua",
       "interno": "MundoDonghua",
-      "version": 9,
+      "version": 10,
       "status": 1,
       "autores": [
         "harley654321"
@@ -111,9 +111,9 @@
         "AnimeMovie",
         "OVA"
       ],
-      "bytes": 23135,
-      "hash": "sha256-c4341b7f5e52f8836d2de05d3258ec9e0cd029151c9665f14f0396e7ab9d9231",
-      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/MundoDonghua-v9.cs3"
+      "bytes": 23143,
+      "hash": "sha256-5394f797ee0ba862e27fd45d8a1c000d827fa37e78510c3005460266475adf6f",
+      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/MundoDonghua-v10.cs3"
     },
     {
       "nombre": "PlantillaProvider",
