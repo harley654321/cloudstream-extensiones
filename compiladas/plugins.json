@@ -102,6 +102,27 @@
     "name": "Monoschinos"
   },
   {
+    "fileHash": "sha256-f3bf7c9df2d23da8bc386e56744ee56a3a8ddd79e5d499138686161b9e4022fe",
+    "apiVersion": 1,
+    "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",
+    "fileSize": 18797,
+    "status": 1,
+    "language": "es",
+    "authors": [
+      "harley654321"
+    ],
+    "tvTypes": [
+      "Anime",
+      "AnimeMovie",
+      "OVA"
+    ],
+    "version": 1,
+    "internalName": "MundoDonghua",
+    "description": "Mundo Donghua: animacion china en espanol. En emision, finalizados, recopilados y catalogo con paginacion real, buscador y todos los servidores de cada episodio",
+    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/MundoDonghua-v1.cs3",
+    "name": "MundoDonghua"
+  },
+  {
     "fileHash": "sha256-66dbcc061da754ed8dcb5c5eb20cebd1cbb46abd30ff9fb7c93e6448a748e511",
     "apiVersion": 1,
     "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",

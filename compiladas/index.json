@@ -1,8 +1,8 @@
 {
   "repo": "https://github.com/harley654321/cloudstream-extensiones",
-  "generado": "2026-11-11T05:46:20Z",
+  "generado": "2026-11-11T06:00:40Z",
   "api": "CloudStream 4.9.1",
-  "total": 6,
+  "total": 7,
   "extensiones": [
     {
       "nombre": "AnimeAV1",
@@ -95,6 +95,25 @@
       "bytes": 26112,
       "hash": "sha256-a4137b36c8cfc49a9c645f45b2990a7ad70e436e3ac8c1b14208c298731b4284",
       "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/Monoschinos-v9.cs3"
+    },
+    {
+      "nombre": "MundoDonghua",
+      "interno": "MundoDonghua",
+      "version": 1,
+      "status": 1,
+      "autores": [
+        "harley654321"
+      ],
+      "descripcion": "Mundo Donghua: animacion china en espanol. En emision, finalizados, recopilados y catalogo con paginacion real, buscador y todos los servidores de cada episodio",
+      "idioma": "es",
+      "tipos": [
+        "Anime",
+        "AnimeMovie",
+        "OVA"
+      ],
+      "bytes": 18797,
+      "hash": "sha256-f3bf7c9df2d23da8bc386e56744ee56a3a8ddd79e5d499138686161b9e4022fe",
+      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/MundoDonghua-v1.cs3"
     },
     {
       "nombre": "PlantillaProvider",
