@@ -1,4 +1,4 @@
-version = 15
+version = 16
 cloudstream {
     description = "Mundo Donghua: animacion china en espanol. En emision, finalizados, recopilados y catalogo con paginacion real, buscador y todos los servidores de cada episodio"
     authors = listOf("harley654321")
