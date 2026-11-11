@@ -1,5 +1,6 @@
 package com.foxcloud.mundodonghua
 
+import android.util.Base64
 import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.HomePageResponse
 import com.lagradost.cloudstream3.LoadResponse
@@ -18,6 +19,10 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.loadExtractor
+import javax.crypto.Cipher
+import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.SecretKeySpec
+import org.json.JSONObject
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import java.net.URLEncoder
@@ -236,9 +241,17 @@ class MundoDonghuaProvider : MainAPI() {
         val vivos = mutableListOf<String>()
         enOrden.forEach { embed ->
             val vivo = runCatching {
-                enlacesDirectos(embed, data) { enlace ->
-                    alguno = true
-                    callback(enlace)
+                if (embed.contains("byse")) {
+                    byseEnlaces(embed, data) { enlace ->
+                        alguno = true
+                        callback(enlace)
+                    }
+                    true
+                } else {
+                    enlacesDirectos(embed, data) { enlace ->
+                        alguno = true
+                        callback(enlace)
+                    }
                 }
             }.getOrDefault(true)
             if (vivo) vivos.add(embed)
@@ -320,6 +333,76 @@ class MundoDonghuaProvider : MainAPI() {
             }
         }
         return true
+    }
+
+    /**
+     * Byse (la pestaña "Fm" del sitio) no sirve el video: entrega un sobre
+     * cifrado en AES-256-GCM junto a las partes de la clave y la version que
+     * dice cuales juntar. Se descifra aqui y sale el master.m3u8 firmado.
+     */
+    private suspend fun byseEnlaces(
+        embed: String,
+        referer: String,
+        callback: (ExtractorLink) -> Unit
+    ): Boolean {
+        val codigo = embed.substringAfter("/e/", "").substringBefore("/").substringBefore("?").trim()
+        if (codigo.isEmpty()) return false
+        val crudo = runCatching {
+            app.get("https://bysekoze.com/api/videos/$codigo", headers = cabeceras, referer = referer).text
+        }.getOrNull() ?: return false
+        val playback = runCatching { JSONObject(crudo).getJSONObject("playback") }.getOrNull() ?: return false
+        val partes = runCatching {
+            val lista = playback.getJSONArray("key_parts")
+            (0 until lista.length()).map { lista.optString(it, "") }.filter { it.isNotEmpty() }
+        }.getOrNull() ?: return false
+        if (partes.isEmpty()) return false
+        val version = playback.optInt("version", 1)
+        val pareja = 31 - version
+        val elegidas = if (version in 1..partes.size && pareja in 1..partes.size) {
+            listOf(partes[version - 1], partes[pareja - 1])
+        } else partes
+        val clave = elegidas.mapNotNull { deBase64(it) }.fold(ByteArray(0)) { uno, otro -> uno + otro }
+        if (clave.isEmpty()) return false
+        val iv = deBase64(playback.optString("iv")) ?: return false
+        val cifrado = deBase64(playback.optString("payload")) ?: return false
+        val claro = runCatching {
+            val cifrador = Cipher.getInstance("AES/GCM/NoPadding")
+            cifrador.init(
+                Cipher.DECRYPT_MODE,
+                SecretKeySpec(clave, "AES"),
+                GCMParameterSpec(128, iv)
+            )
+            cifrador.doFinal(cifrado)
+        }.getOrNull() ?: return false
+        val fuentes = runCatching {
+            JSONObject(String(claro, Charsets.UTF_8)).getJSONArray("sources")
+        }.getOrNull() ?: return false
+        var alguno = false
+        for (indice in 0 until fuentes.length()) {
+            val fuente = fuentes.optJSONObject(indice) ?: continue
+            val url = fuente.optString("url")
+            if (url.isEmpty()) continue
+            val etiqueta = fuente.optString("label").ifEmpty { "Byse" }
+            val esHls = fuente.optString("mime_type").contains("mpegurl") || url.contains(".m3u8")
+            alguno = true
+            callback(
+                ExtractorLink(
+                    source = name,
+                    name = "Byse $etiqueta",
+                    url = url,
+                    referer = "https://bysekoze.com/",
+                    quality = etiqueta.filter { it.isDigit() }.toIntOrNull() ?: Qualities.Unknown.value,
+                    type = if (esHls) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
+                )
+            )
+        }
+        return alguno
+    }
+
+    private fun deBase64(texto: String): ByteArray? {
+        if (texto.isEmpty()) return null
+        return runCatching { Base64.decode(texto, Base64.URL_SAFE or Base64.NO_WRAP) }
+            .getOrElse { runCatching { Base64.decode(texto, Base64.DEFAULT) }.getOrNull() }
     }
 
     private fun servirDe(embed: String): String {
