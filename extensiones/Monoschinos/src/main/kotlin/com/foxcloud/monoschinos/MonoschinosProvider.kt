@@ -71,7 +71,7 @@ class MonoschinosProvider : MainAPI() {
             "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/caps/ms"
 
         /** Igual que DISENO en .github/scripts/caps_ms.py. */
-        const val CAPS_VER = "1"
+        const val CAPS_VER = "2"
         const val CAPS_TTL = 60 * 60 * 1000L
 
         /** El sitio corta conexiones a ratos: se reintenta antes de rendirse. */
@@ -128,7 +128,8 @@ class MonoschinosProvider : MainAPI() {
             ficha = if (enlace.startsWith("http")) enlace else mainUrl + enlace
         }
 
-        val doc = documento(ficha) ?: return null
+        val html = pedir(ficha) ?: return null
+        val doc = runCatching { Jsoup.parse(html, ficha) }.getOrNull() ?: return null
         val titulo = doc.selectFirst("h1")?.text()?.trim() ?: return null
 
         val imagenes = doc.select("img").mapNotNull { img ->
@@ -148,7 +149,7 @@ class MonoschinosProvider : MainAPI() {
             .find(doc.selectFirst("#tab-info")?.text().orEmpty())?.value?.toIntOrNull()
         val idioma = idiomaDe(generos)
 
-        val episodios = capitulos(doc, idioma, poster)
+        val episodios = capitulos(ficha, doc, html, idioma, poster)
 
         return newTvSeriesLoadResponse(titulo, ficha, TvType.Anime, episodios) {
             this.posterUrl = poster
@@ -170,38 +171,86 @@ class MonoschinosProvider : MainAPI() {
 
     // ------------------------------------------------------- capitulos
 
-    private suspend fun capitulos(doc: Document, idioma: String, portada: String?): List<Episode> {
-        val ajax = doc.selectFirst(".caplist")?.attr("data-ajax")?.takeIf { it.startsWith("http") }
-            ?: return emptyList()
-        val listado = primeraPaginacion(ajax) ?: return emptyList()
-
+    private suspend fun capitulos(
+        ficha: String,
+        doc: Document,
+        html: String,
+        idioma: String,
+        portada: String?
+    ): List<Episode> {
         val salida = mutableListOf<Episode>()
-        var desplazamiento = 0
-        var pagina = 1
-        while (pagina <= 60) {
-            val destino = if (pagina == 1) listado else "$listado?p=$pagina"
-            val cuerpo = pedir(destino, referer = listado) ?: break
 
-            val caps = capsDe(cuerpo)
-            if (caps.isEmpty()) break
-            if (pagina == 1 && caps.firstOrNull()?.first == 0) desplazamiento = 1
-            caps.forEach { (numero, enlace) ->
-                if (salida.any { it.data == "$enlace#$idioma" }) return@forEach
-                val n = numero + desplazamiento
-                salida.add(
-                    newEpisode("$enlace#$idioma") {
-                        this.name = "Episodio " + n
-                        this.episode = n
-                        // El sitio no tiene captura por capitulo: usa la portada
-                        // de la obra en todos, igual que hace la web.
-                        this.posterUrl = portada
-                    }
-                )
+        // Plan A: el data-ajax que trae la ficha. Plan B: el id del listado en el
+        // HTML (por si el atributo cambia). Plan C: los enlaces /ver/ del HTML.
+        var listado = listadoDeCaps(doc, html)
+        if (listado != null && listado.contains("ajax_pagination")) {
+            listado = primeraPaginacion(listado) ?: listado.replace("ajax_pagination", "caplist")
+        }
+
+        if (listado != null) {
+            var desplazamiento = 0
+            var pagina = 1
+            while (pagina <= 60) {
+                val destino = if (pagina == 1) listado else "$listado?p=$pagina"
+                val cuerpo = pedir(destino) ?: break
+
+                val caps = capsDe(cuerpo)
+                if (caps.isEmpty()) break
+                if (pagina == 1 && caps.firstOrNull()?.first == 0) desplazamiento = 1
+                caps.forEach { (numero, enlace, miniatura) ->
+                    if (salida.any { it.data == "$enlace#$idioma" }) return@forEach
+                    val n = numero + desplazamiento
+                    salida.add(
+                        newEpisode("$enlace#$idioma") {
+                            this.name = "Episodio " + n
+                            this.episode = n
+                            // Algunas obras SI traen captura propia por capitulo
+                            // (assets/img/serie/episodio/...). Si no la traen, se
+                            // usa la portada de la obra, que es lo que hace la web.
+                            this.posterUrl = posterCapitulo(miniatura, portada)
+                        }
+                    )
+                }
+                if (caps.size < 50) break
+                pagina++
             }
-            if (caps.size < 50) break
-            pagina++
+        }
+
+        // Ultimo recurso: lo que venga enlazado en la propia ficha.
+        if (salida.isEmpty()) {
+            Regex("""/ver/[a-z0-9-]*?episodio-(\d+)""").findAll(html).forEach { m ->
+                val n = m.groupValues[1].toIntOrNull() ?: return@forEach
+                val enlace = mainUrl + m.value
+                if (salida.any { it.data == "$enlace#$idioma" }) return@forEach
+                salida.add(newEpisode("$enlace#$idioma") {
+                    this.name = "Episodio " + n
+                    this.episode = n
+                    this.posterUrl = portada
+                })
+            }
         }
         return salida
+    }
+
+    /** Listado de capitulos: atributo del .caplist o el id incrustado en el HTML. */
+    private fun listadoDeCaps(doc: Document, html: String): String? {
+        doc.selectFirst(".caplist")?.attr("data-ajax")
+            ?.takeIf { it.startsWith("http") }?.let { return it }
+
+        val caplist = Regex("/ajax/caplist/(\\d+)").find(html)
+        if (caplist != null) return mainUrl + "/ajax/caplist/" + caplist.groupValues[1]
+
+        val paginacion = Regex("/ajax/ajax_pagination/(\\d+)").find(html)
+        if (paginacion != null) {
+            return mainUrl + "/ajax/ajax_pagination/" + paginacion.groupValues[1]
+        }
+        return null
+    }
+
+    /** La captura propia del capitulo manda; si no hay, la portada de la obra. */
+    private fun posterCapitulo(miniatura: String?, portada: String?): String? {
+        val propia = miniatura?.takeIf { it.contains("/assets/img/serie/episodio/") }
+        return propia ?: portada
     }
 
     /** ajax_pagination responde {"paginate_url": ".../ajax/caplist/<id>", ...}. */
@@ -212,14 +261,20 @@ class MonoschinosProvider : MainAPI() {
     }
 
     /** Lee "caps":[{"episodio":N,"url":"..."}] sin depender de modelos. */
-    private fun capsDe(json: String): List<Pair<Int, String>> {
+    /** Lee "caps":[{"episodio":N,"url":"...","thumb":"..."}] sin depender de modelos. */
+    private fun capsDe(json: String): List<Triple<Int, String, String?>> {
         val limpio = json.replace("\\/", "/")
-        val regex = Regex("\"episodio\"\\s*:\\s*(\\d+)\\s*,\\s*\"url\"\\s*:\\s*\"([^\"]+)\"")
+        val patron = "\"episodio\"\\s*:\\s*(\\d+)\\s*,\\s*\"url\"\\s*:\\s*\"([^\"]+)\"" +
+            "(?:\\s*,\\s*\"thumb\"\\s*:\\s*\"([^\"]+)\")?"
+        val regex = Regex(patron)
         return regex.findAll(limpio).mapNotNull { m ->
             val numero = m.groupValues[1].toIntOrNull() ?: 0
             val crudo = m.groupValues[2]
             val enlace = if (crudo.startsWith("http")) crudo else mainUrl + "/" + crudo.trimStart('/')
-            if (enlace.contains("/ver/")) numero to enlace else null
+            val miniatura = m.groupValues[3].takeIf { it.isNotEmpty() }?.let {
+                if (it.startsWith("http")) it else mainUrl + "/" + it.trimStart('/')
+            }
+            if (enlace.contains("/ver/")) Triple(numero, enlace, miniatura) else null
         }.toList()
     }
 
