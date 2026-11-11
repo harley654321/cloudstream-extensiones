@@ -58,11 +58,11 @@ class Cineplus123Provider : MainAPI() {
     // Los /genero/latino|castellano|subtitulado NO van aqui: son filtros de
     // idioma y listan los mismos titulos. El idioma se elige en los servidores.
     override val mainPage = mainPageOf(
+        "destacados" to "Titulos destacados",
         "peliculas" to "Peliculas",
-        "series" to "Series",
-        "estrenos" to ("Estrenos " + java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)),
-        "accion" to "Accion",
-        "animacion" to "Animacion"
+        "series" to "Series de TV",
+        "top_movies" to "TOP Movies",
+        "top_series" to "TOP Series"
     )
 
     private val paginaRegex = Regex("""/page/(\d+)/?""")
@@ -78,6 +78,21 @@ class Cineplus123Provider : MainAPI() {
     // ---------------------------------------------------------------- portada
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+        // Destacados y los dos TOP son listas fijas del sitio: una sola pagina.
+        if (request.data == "destacados") {
+            if (page > 1) return newHomePageResponse(request.name, emptyList())
+            val doc = runCatching { app.get(mainUrl).document }.getOrNull()
+            val items = doc?.let { destacados(it) } ?: emptyList()
+            return newHomePageResponse(request.name, items)
+        }
+        if (request.data == "top_movies" || request.data == "top_series") {
+            if (page > 1) return newHomePageResponse(request.name, emptyList())
+            val doc = runCatching { app.get(mainUrl.trimEnd('/') + "/imdb/").document }.getOrNull()
+            val series = request.data == "top_series"
+            val items = doc?.let { ranking(it, series) } ?: emptyList()
+            return newHomePageResponse(request.name, items)
+        }
+
         // Igual que en las otras extensiones: cada peticion de fila une un lote de
         // paginas del sitio para que la fila llegue larga y el deslizamiento siga.
         val porLote = 10
@@ -120,17 +135,15 @@ class Cineplus123Provider : MainAPI() {
     private fun Document.cards(): List<SearchResponse> {
         val salida = mutableListOf<SearchResponse>()
         val vistos = mutableSetOf<String>()
-        select("article.item").forEach { articulo ->
+        // El archivo trae arriba el carrusel (.animation-1.slider) y el bloque
+        // .items.featured con los mismos titulos: se excluyen para que cada fila
+        // muestre solo lo suyo y no se repita contenido entre paginas.
+        select("article.item").filterNot { enCarrusel(it) }.forEach { articulo ->
             val href = articulo.select("a[href]").map { it.attr("href") }
                 .firstOrNull { fichaRegex.containsMatchIn(it) } ?: return@forEach
             if (!vistos.add(href)) return@forEach
-            val alt = articulo.selectFirst("img[alt]")?.attr("alt")?.trim().orEmpty()
-            val titulo = alt.takeIf { it.isNotEmpty() && it != "Pelis123" }
-                ?: articulo.selectFirst(".title")?.text()?.trim()?.takeIf { it.isNotEmpty() }
-                ?: return@forEach
-            val poster = articulo.select("img[data-src], img[src]")
-                .map { it.attr("data-src").ifBlank { it.attr("src") } }
-                .firstOrNull { it.startsWith("http") && !it.contains("logo") && !it.contains("play.svg") }
+            val titulo = tituloDe(articulo) ?: return@forEach
+            val poster = posterDe(articulo)
             val esSerie = href.contains("/serie-de-tv/")
             salida.add(
                 if (esSerie) {
@@ -142,6 +155,83 @@ class Cineplus123Provider : MainAPI() {
         }
         return salida
     }
+
+    /** El carrusel y el bloque destacado repiten titulos en todas las paginas. */
+    private fun enCarrusel(articulo: org.jsoup.nodes.Element): Boolean {
+        var padre: org.jsoup.nodes.Element? = articulo.parent()
+        while (padre != null) {
+            val clases = padre.classNames()
+            if (clases.contains("slider") || clases.contains("featured") || clases.contains("animation-1")) return true
+            padre = padre.parent()
+        }
+        return false
+    }
+
+    /** Portada de una tarjeta: lazy-load, src, o cualquier URL de imagen del bloque. */
+    private fun posterDe(articulo: org.jsoup.nodes.Element): String? {
+        val candidatos = mutableListOf<String>()
+        articulo.select("img").forEach { img ->
+            listOf("data-src", "data-lazy-src", "data-original", "src").forEach { attr ->
+                candidatos.add(img.attr(attr))
+            }
+        }
+        articulo.select("[style*=background]").forEach { el ->
+            Regex("""url\(['"]?(https?://[^'")]+)""").find(el.attr("style"))?.groupValues?.get(1)?.let { candidatos.add(it) }
+        }
+        return candidatos.asSequence()
+            .map { it.trim() }
+            .map { if (it.startsWith("//")) "https:" + it else it }
+            .firstOrNull { it.startsWith("http") && !it.contains("logo") && !it.contains("play.svg") && !it.contains("data:") }
+            ?.let { grande(it) }
+    }
+
+    /** Las tarjetas pequeñas traen la portada en 185px; se pide en 500px. */
+    private fun grande(url: String): String =
+        url.replace("/t/p/w92/", "/t/p/w500/").replace("/t/p/w185/", "/t/p/w500/").replace("/t/p/w300/", "/t/p/w500/")
+
+    /** Carrusel de la portada (10-18 titulos reales del sitio). */
+    private fun destacados(doc: Document): List<SearchResponse> {
+        val salida = mutableListOf<SearchResponse>()
+        val vistos = mutableSetOf<String>()
+        doc.select(".animation-1.slider article.item, .items.featured article.item").forEach { articulo ->
+            val href = articulo.select("a[href]").map { it.attr("href") }
+                .firstOrNull { fichaRegex.containsMatchIn(it) } ?: return@forEach
+            if (!vistos.add(href)) return@forEach
+            val titulo = tituloDe(articulo) ?: return@forEach
+            val poster = posterDe(articulo)
+            salida.add(
+                if (href.contains("/serie-de-tv/")) {
+                    newTvSeriesSearchResponse(titulo, href, TvType.TvSeries) { this.posterUrl = poster }
+                } else {
+                    newMovieSearchResponse(titulo, href, TvType.Movie) { this.posterUrl = poster }
+                }
+            )
+        }
+        return salida
+    }
+
+    /** /imdb/ mezcla peliculas y series en un solo bloque: se separan por la ruta. */
+    private fun ranking(doc: Document, series: Boolean): List<SearchResponse> {
+        val salida = mutableListOf<SearchResponse>()
+        val vistos = mutableSetOf<String>()
+        doc.select(".top-imdb-item").forEach { bloque ->
+            val href = bloque.select("a[href]").map { it.attr("href") }
+                .firstOrNull { fichaRegex.containsMatchIn(it) } ?: return@forEach
+            if (href.contains("/serie-de-tv/") != series) return@forEach
+            if (!vistos.add(href)) return@forEach
+            val titulo = tituloDe(bloque) ?: return@forEach
+            val poster = posterDe(bloque)
+            salida.add(
+                if (series) newTvSeriesSearchResponse(titulo, href, TvType.TvSeries) { this.posterUrl = poster }
+                else newMovieSearchResponse(titulo, href, TvType.Movie) { this.posterUrl = poster }
+            )
+        }
+        return salida
+    }
+
+    private fun tituloDe(articulo: org.jsoup.nodes.Element): String? =
+        articulo.selectFirst("img[alt]")?.attr("alt")?.trim()?.takeIf { it.isNotEmpty() && it != "Pelis123" }
+            ?: articulo.selectFirst(".title")?.text()?.trim()?.takeIf { it.isNotEmpty() }
 
     // ---------------------------------------------------------------- busqueda
 
