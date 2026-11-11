@@ -182,7 +182,7 @@ class CinecalidadProvider : MainAPI() {
             } else if (embed.contains("youtube.com") || embed.contains("youtu.be")) {
                 return@forEach
             } else {
-                loadExtractor(embed, "$mainUrl/", subtitleCallback, callback)
+                runCatching { loadExtractor(embed, "$mainUrl/", subtitleCallback, callback) }
             }
         }
 
@@ -201,7 +201,7 @@ class CinecalidadProvider : MainAPI() {
 
         val enlaces = m3u8Regex.findAll(codigo).map { it.groupValues[1] }.distinct().toList()
         if (enlaces.isEmpty()) {
-            loadExtractor(embed, "$mainUrl/", subtitleCallback, callback)
+            runCatching { loadExtractor(embed, "$mainUrl/", subtitleCallback, callback) }
             return false
         }
 

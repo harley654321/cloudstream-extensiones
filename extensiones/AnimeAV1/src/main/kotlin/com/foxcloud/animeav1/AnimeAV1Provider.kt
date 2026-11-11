@@ -308,7 +308,7 @@ class AnimeAV1Provider : MainAPI() {
             if (servidor.equals("HLS", ignoreCase = true)) return@forEach
             if (!emitidos.add(enlace)) return@forEach
             val prefijo = if (idioma.isBlank()) "" else "$idioma \u00b7 "
-            loadExtractor(enlace, "$mainUrl/", subtitleCallback) { video ->
+            extraerSeguro(enlace, subtitleCallback) { video ->
                 // Se reemite el enlace con el idioma delante. Se construye directo
                 // porque newExtractorLink es suspend y aqui no hay corrutina.
                 @Suppress("DEPRECATION")
@@ -523,5 +523,14 @@ class AnimeAV1Provider : MainAPI() {
             t.contains("ova") -> TvType.OVA
             else -> TvType.Anime
         }
+    }
+
+    /** Un extractor roto no puede cortar la lista entera de servidores. */
+    private suspend fun extraerSeguro(
+        enlace: String,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        alEnlace: (ExtractorLink) -> Unit
+    ) {
+        runCatching { loadExtractor(enlace, "$mainUrl/", subtitleCallback, alEnlace) }
     }
 }

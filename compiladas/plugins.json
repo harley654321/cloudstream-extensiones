@@ -1,9 +1,9 @@
 [
   {
-    "fileHash": "sha256-59ee3a28b1115c866b57e4d814f25947acddd620462fad5d94c7f7b8dac7b0d7",
+    "fileHash": "sha256-a58c97e43e91e0822b82ce9d0e265cf558014487a6c879da8067c029bfdc20ad",
     "apiVersion": 1,
     "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",
-    "fileSize": 30438,
+    "fileSize": 27642,
     "status": 1,
     "language": "es",
     "authors": [
@@ -14,51 +14,11 @@
       "AnimeMovie",
       "OVA"
     ],
-    "version": 11,
+    "version": 7,
     "internalName": "AnimeAV1",
     "description": "AnimeAV1: catalogo de anime en espanol. Recientes, agregados, populares, mejor puntuados, en emision y peliculas",
-    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/AnimeAV1-v11.cs3",
+    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/AnimeAV1-v7.cs3",
     "name": "AnimeAV1"
-  },
-  {
-    "fileHash": "sha256-ea4e6426d40b6e2d0e5fcb9c742d4ecc92614d8cb72665d7de1787e60058f1c7",
-    "apiVersion": 1,
-    "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",
-    "fileSize": 20859,
-    "status": 1,
-    "language": "es",
-    "authors": [
-      "harley654321"
-    ],
-    "tvTypes": [
-      "Movie",
-      "TvSeries"
-    ],
-    "version": 7,
-    "internalName": "Cinecalidad",
-    "description": "Cinecalidad: peliculas y series en latino con estrenos, generos y servidores Vimeos",
-    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/Cinecalidad-v7.cs3",
-    "name": "Cinecalidad"
-  },
-  {
-    "fileHash": "sha256-599de90f2327b472434f786f5c1b81b19dee649c4433423c1ab1406c734d999c",
-    "apiVersion": 1,
-    "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",
-    "fileSize": 33550,
-    "status": 1,
-    "language": "es",
-    "authors": [
-      "harley654321"
-    ],
-    "tvTypes": [
-      "Movie",
-      "TvSeries"
-    ],
-    "version": 4,
-    "internalName": "Cineplus123",
-    "description": "Cineplus123: peliculas y series con servidores etiquetados por idioma (latino, castellano, subtitulado)",
-    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/Cineplus123-v4.cs3",
-    "name": "Cineplus123"
   },
   {
     "fileHash": "sha256-66dbcc061da754ed8dcb5c5eb20cebd1cbb46abd30ff9fb7c93e6448a748e511",

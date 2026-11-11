@@ -20,6 +20,7 @@ import com.lagradost.cloudstream3.newTvSeriesSearchResponse
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.Qualities
+import com.lagradost.cloudstream3.utils.getAndUnpack
 import com.lagradost.cloudstream3.utils.loadExtractor
 import com.lagradost.cloudstream3.utils.newExtractorLink
 import org.jsoup.nodes.Document
@@ -381,40 +382,107 @@ class Cineplus123Provider : MainAPI() {
         var alguno = false
 
         for (opcion in opciones) {
-            val embed = embedDe(opcion.post, opcion.nume, opcion.tipo, data) ?: continue
+            val embed = runCatching { embedDe(opcion.post, opcion.nume, opcion.tipo, data) }.getOrNull() ?: continue
             if (!emitidos.add(embed)) continue
             if (embed.contains("youtube.com") || embed.contains("youtu.be")) continue
 
-            val prefijo = if (opcion.etiqueta.isBlank()) "" else opcion.etiqueta + " \u00b7 "
-
-            if (embed.contains("byse")) {
-                if (byse(embed, opcion.etiqueta, callback)) {
+            // Primero se resuelve a mano el host (Byse, Vidara, Uqload...), porque
+            // CloudStream no reconoce todos los dominios que usa este sitio.
+            val propioOk = runCatching {
+                propio(embed, opcion.etiqueta) { link ->
                     alguno = true
-                    continue
+                    callback(link)
                 }
-            }
+            }.getOrDefault(false)
 
-            loadExtractor(embed, data, subtitleCallback) { video ->
-                // Se reemite con el idioma delante para que se vea en la lista.
-                @Suppress("DEPRECATION")
-                callback(
-                    ExtractorLink(
-                        source = video.source,
-                        name = prefijo + video.name,
-                        url = video.url,
-                        referer = video.referer,
-                        quality = video.quality,
-                        headers = video.headers,
-                        extractorData = video.extractorData,
-                        type = video.type,
-                        audioTracks = video.audioTracks
-                    )
-                )
-                alguno = true
+            // Si no salio, se prueba el extractor de CloudStream, pero un fallo
+            // suyo no puede cortar los demas servidores de la lista.
+            if (!propioOk) {
+                runCatching {
+                    loadExtractor(embed, data, subtitleCallback) { video ->
+                        etiquetado(video, opcion.etiqueta) { link ->
+                            alguno = true
+                            callback(link)
+                        }
+                    }
+                }
             }
         }
 
         return alguno
+    }
+
+    /** Reemite un enlace del extractor con el idioma delante. */
+    private fun etiquetado(video: ExtractorLink, etiqueta: String, callback: (ExtractorLink) -> Unit) {
+        val prefijo = if (etiqueta.isBlank()) "" else etiqueta + " \u00b7 "
+        @Suppress("DEPRECATION")
+        callback(
+            ExtractorLink(
+                source = video.source,
+                name = prefijo + video.name,
+                url = video.url,
+                referer = video.referer,
+                quality = video.quality,
+                headers = video.headers,
+                extractorData = video.extractorData,
+                type = video.type,
+                audioTracks = video.audioTracks
+            )
+        )
+    }
+
+    /**
+     * Los tres hosts del sitio, resueltos a mano:
+     *  - Byse: SPA que publica sus sources en /api/videos/<codigo>/embed/details
+     *  - Vidara: el reproductor pide la pista a POST /api/stream
+     *  - Uqload (cualquier dominio): el embed lleva un packer con el archivo real
+     */
+    private suspend fun propio(embed: String, etiqueta: String, callback: (ExtractorLink) -> Unit): Boolean {
+        val host = embed.substringAfter("://").substringBefore('/').lowercase()
+        val prefijo = if (etiqueta.isBlank()) "" else etiqueta + " \u00b7 "
+        val nombre = prefijo + host.substringBefore('.').replaceFirstChar { it.uppercase() }
+
+        if (host.contains("byse") && byse(embed, etiqueta, callback)) return true
+
+        if (host.contains("vidara")) {
+            val codigo = embed.trimEnd('/').substringAfterLast('/').substringBefore('?')
+            val cuerpo = runCatching {
+                app.post(
+                    "https://" + host + "/api/stream",
+                    json = mapOf("filecode" to codigo, "device" to "web"),
+                    referer = embed
+                ).text
+            }.getOrNull()
+            val enlace = cuerpo
+                ?.let { texto -> Regex("""streaming_url\s*:\s*"(.*?)"""").find(texto)?.groupValues?.get(1) }
+                ?.replace("\\/", "/")
+                ?.takeIf { it.startsWith("http") }
+            if (enlace != null) {
+                callback(
+                    newExtractorLink(this.name, nombre, enlace, ExtractorLinkType.M3U8) {
+                        this.referer = embed
+                        this.quality = Qualities.Unknown.value
+                    }
+                )
+                return true
+            }
+        }
+
+        val respuesta = runCatching { app.get(embed, referer = mainUrl.trimEnd('/') + "/") }.getOrNull() ?: return false
+        val codigo = runCatching { getAndUnpack(respuesta.text) }.getOrNull() ?: respuesta.text
+        val archivo = Regex("""https?://[^"'\\\s]+?\.(?:m3u8|mp4)[^"'\\\s]*""")
+            .find(codigo)?.value?.replace("\\/", "/")
+        if (archivo != null) {
+            val tipo = if (archivo.contains(".m3u8")) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
+            callback(
+                newExtractorLink(this.name, nombre, archivo, tipo) {
+                    this.referer = embed
+                    this.quality = Qualities.Unknown.value
+                }
+            )
+            return true
+        }
+        return false
     }
 
     /** Dooplay resuelve el embed real por AJAX; devuelve la URL del reproductor. */
