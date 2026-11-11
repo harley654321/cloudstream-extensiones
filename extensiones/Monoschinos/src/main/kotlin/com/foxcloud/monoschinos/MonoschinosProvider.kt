@@ -159,45 +159,49 @@ class MonoschinosProvider : MainAPI() {
     private fun capsDe(json: String): List<Triple<Int, String, String?>> {
         val limpio = json.replace("\\/", "/")
         val regex = Regex(
-            """"episodio"\s*:\s*(\d+)\s*,\s*"url"\s*:\s*"([^"]+)""" +
-                """(?:\s*,\s*"thumb"\s*:\s*"([^"]+)")?"""
+            "\"episodio\"\\s*:\\s*(\\d+)\\s*,\\s*\"url\"\\s*:\\s*\"([^\"]+)\"(?:" +
+                "\\s*,\\s*\"thumb\"\\s*:\\s*\"([^\"]+)\")?"
         )
         return regex.findAll(limpio).mapNotNull { m ->
             val numero = m.groupValues[1].toIntOrNull() ?: 0
-            val enlace = m.groupValues[2]
-            if (!enlace.startsWith("http")) null
-            else Triple(numero, enlace, m.groupValues[3].takeIf { it.startsWith("http") })
+            // Unos listados dan la url absoluta y otros relativa (/ver/...).
+            val crudo = m.groupValues[2]
+            val enlace = if (crudo.startsWith("http")) crudo else mainUrl + "/" + crudo.trimStart('/')
+            val miniatura = m.groupValues[3].takeIf { it.isNotEmpty() }?.let {
+                if (it.startsWith("http")) it else mainUrl + "/" + it.trimStart('/')
+            }
+            if (!enlace.contains("/ver/")) null else Triple(numero, enlace, miniatura)
         }.toList()
     }
 
     /** Portada: tarjetas de capitulo reciente, con portada y numero de episodio. */
     private fun Document.tarjetasCapitulos(): List<SearchResponse> {
         val salida = mutableListOf<SearchResponse>()
-        select("a[href]").forEach { enlace ->
+        val vistos = mutableSetOf<String>()
+
+        // Solo la seccion "Ultimos capitulos": el resto de la portada tiene otros
+        // enlaces (/ver/ del hero) que repetian la misma obra con titulos cortados.
+        val seccion = select("section").firstOrNull { s ->
+            s.selectFirst("h2")?.text()?.contains("ltimos cap", ignoreCase = true) == true
+        } ?: return salida
+
+        seccion.select("a[href]").forEach { enlace ->
             val href = enlace.attr("href")
             if (!href.contains("/ver/")) return@forEach
-            if (salida.any { it.url == href }) return@forEach
-
-            var contenedor: org.jsoup.nodes.Element? = if (enlace.selectFirst(".card-title") != null) enlace else null
-            if (contenedor == null) {
-                var padre = enlace.parent()
-                var saltos = 0
-                while (padre != null && saltos < 5) {
-                    if (padre.selectFirst(".card-title") != null) { contenedor = padre; break }
-                    padre = padre.parent()
-                    saltos++
-                }
-            }
-            val tarjeta = contenedor ?: return@forEach
-            val titulo = tarjeta.selectFirst(".card-title")?.text()?.trim()?.takeIf { it.isNotEmpty() }
+            val titulo = enlace.selectFirst(".card-title")?.text()?.trim()?.takeIf { it.isNotEmpty() }
                 ?: return@forEach
 
-            val poster = tarjeta.selectFirst("img")?.let { img ->
+            // Una entrada por obra: el sitio repite el mismo anime por cada
+            // capitulo nuevo (Battle Spirits salia con los episodios 6, 5 y 3).
+            val obra = href.substringAfter("/ver/").replace(Regex("-episodio-\\d+.*$"), "")
+            if (!vistos.add(obra)) return@forEach
+
+            val poster = enlace.selectFirst("img")?.let { img ->
                 (img.attr("data-src").ifBlank { img.attr("src") })
                     .takeIf { it.startsWith("http") && !it.contains("/img/anime.png") }
             }
             val numero = episodioEnUrl.find(href)?.groupValues?.get(1)
-            val nombre = if (numero != null) "$titulo \u00b7 Ep $numero" else titulo
+            val nombre = if (numero != null) "Ep " + numero + " \u00b7 " + titulo else titulo
 
             salida.add(newAnimeSearchResponse(nombre, href, TvType.Anime) { this.posterUrl = poster })
         }
