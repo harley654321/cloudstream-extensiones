@@ -1,6 +1,5 @@
 package com.foxcloud.mundodonghua
 
-import android.util.Base64
 import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.HomePageResponse
 import com.lagradost.cloudstream3.LoadResponse
@@ -16,13 +15,11 @@ import com.lagradost.cloudstream3.newEpisode
 import com.lagradost.cloudstream3.newHomePageResponse
 import com.lagradost.cloudstream3.newTvSeriesLoadResponse
 import com.lagradost.cloudstream3.utils.ExtractorLink
-import com.lagradost.cloudstream3.utils.ExtractorLinkType
-import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.loadExtractor
-import javax.crypto.Cipher
-import javax.crypto.spec.GCMParameterSpec
-import javax.crypto.spec.SecretKeySpec
-import org.json.JSONObject
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.atomic.AtomicBoolean
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import java.net.URLEncoder
@@ -41,8 +38,9 @@ import java.net.URLEncoder
  *   de ahi sale la direccion de cada servidor. Aqui se desempaquetan sin
  *   ejecutar nada y se pasan a la lista global de extractores.
  * - Servidores vistos en toda la muestra: bysekoze (Byse), voe.sx, vidhidepro y
- *   embedwish. CloudStream ya resuelve los tres ultimos; Byse lo pone
- *   FoxResolvedores.
+ *   embedwish. Ninguno se resuelve aqui: esta extension solo entrega las
+ *   direcciones y la lista global de extractores hace el resto (voe, vidhide y
+ *   embedwish vienen en la app; Byse lo pone FoxResolvedores).
  */
 class MundoDonghuaProvider : MainAPI() {
     override var mainUrl = "https://www.mundodonghua.com"
@@ -70,12 +68,17 @@ class MundoDonghuaProvider : MainAPI() {
 
     private companion object {
         const val REINTENTOS = 3
+
+        /** Tope para resolver un episodio entero. */
+        const val TOTAL_MS = 15_000L
+
+        /** Tope por reproductor, todos en paralelo. */
+        const val POR_HOST_MS = 12_000L
         val PACKER = Regex(
             """eval\(function\(p,a,c,k,e,d\).*?\}\('((?:[^'\\]|\\.)*)',(\d+),(\d+),'((?:[^'\\]|\\.)*)'\.split\('\|'\)""",
             RegexOption.DOT_MATCHES_ALL
         )
         val URL_EN_TEXTO = Regex("""https?://[^"'\s\\]+""")
-        val STREAM_EN_TEXTO = Regex("""https?://[^"'\s\\]+?\.(?:m3u8|mp4)[^"'\s\\]*""")
     }
 
     // ------------------------------------------------------------- red
@@ -217,6 +220,15 @@ class MundoDonghuaProvider : MainAPI() {
 
     // --------------------------------------------------------- enlaces
 
+    /**
+     * Aqui NO se resuelve ningun reproductor: esta extension no sabe descifrar
+     * ningun servidor y no debe saberlo. Solo encuentra las direcciones que el
+     * episodio esconde en su JavaScript y se las entrega a la lista global de
+     * extractores (los de la app y los de FoxResolvedores).
+     *
+     * Todas se piden a la vez y con tope de tiempo: o sale algo en segundos, o
+     * la obra termina diciendo que no hay enlaces. Nunca se queda girando.
+     */
     override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
@@ -231,190 +243,26 @@ class MundoDonghuaProvider : MainAPI() {
         doc?.select("iframe[src]")?.forEach { marco ->
             marco.attr("src").takeIf { it.startsWith("http") }?.let { servidores.add(it) }
         }
+        if (servidores.isEmpty()) return false
 
-        var alguno = false
-        val enOrden = ordenados(servidores)
-
-        // 1. Lectura directa. EmbedWish y VidHide entregan su m3u8 dentro del
-        //    JavaScript del reproductor, asi que se saca en un par de peticiones
-        //    rapidas y sin depender de los extractores de la app.
-        val vivos = mutableListOf<String>()
-        enOrden.forEach { embed ->
-            val vivo = runCatching {
-                if (embed.contains("byse")) {
-                    byseEnlaces(embed, data) { enlace ->
-                        alguno = true
-                        callback(enlace)
+        val encontrado = AtomicBoolean(false)
+        withTimeoutOrNull(TOTAL_MS) {
+            coroutineScope {
+                servidores.map { embed ->
+                    async {
+                        runCatching {
+                            withTimeoutOrNull(POR_HOST_MS) {
+                                loadExtractor(embed, data, subtitleCallback) { enlace ->
+                                    encontrado.set(true)
+                                    callback(enlace)
+                                }
+                            }
+                        }
                     }
-                    true
-                } else {
-                    enlacesDirectos(embed, data) { enlace ->
-                        alguno = true
-                        callback(enlace)
-                    }
-                }
-            }.getOrDefault(true)
-            if (vivo) vivos.add(embed)
-        }
-
-        // 2. Solo si no salio nada (Byse y Voe cifran el reproductor) se pasa
-        //    por la lista de extractores, y se corta en el primero que responda
-        //    para que ninguna obra se quede cargando eternamente.
-        if (!alguno) {
-            for (embed in vivos) {
-                var resuelto = false
-                runCatching {
-                    loadExtractor(embed, data, subtitleCallback) { enlace ->
-                        resuelto = true
-                        callback(enlace)
-                    }
-                }
-                if (resuelto) {
-                    alguno = true
-                    break
-                }
+                }.forEach { it.await() }
             }
         }
-        return alguno
-    }
-
-    /** Primero los que se resuelven leyendo su HTML, al final los cifrados. */
-    private fun ordenados(servidores: Set<String>): List<String> = servidores.sortedBy { embed ->
-        val host = embed.substringAfter("://").substringBefore("/")
-        when {
-            host.contains("wish") || host.contains("vgembed") -> 0
-            // Byse responde siempre por HTTPS normal: si esta FoxResolvedores
-            // instalado sale en un par de segundos. VidHide, en cambio, pasa
-            // por DDoS-Guard y sus reintentos son los que dejaban la obra
-            // cargando casi medio minuto, asi que va despues.
-            host.contains("byse") -> 1
-            host.contains("vidhide") -> 2
-            host.contains("voe") -> 3
-            else -> 4
-        }
-    }
-
-    /**
-     * Lee el reproductor y se queda con su playlist. Devuelve true si la pagina
-     * sigue viva (aunque no lleve playlist), para no gastar intentos con los
-     * extractores en los servidores que el propio sitio ya da por borrados.
-     */
-    private suspend fun enlacesDirectos(
-        embed: String,
-        referer: String,
-        callback: (ExtractorLink) -> Unit
-    ): Boolean {
-        // Un solo intento: si el reproductor no contesta rapido, se pasa al
-        // siguiente en vez de repetir y dejar al usuario esperando.
-        // Si el reproductor no responde desde aqui (bloquea la conexion o
-        // tarda), se deja vivo: puede que el extractor de la app si entre.
-        val respuesta = runCatching {
-            app.get(embed, headers = cabeceras, referer = referer)
-        }.getOrNull() ?: return true
-        if (respuesta.code == 404 || respuesta.code == 410) return false
-        val html = respuesta.text
-        if (html.contains("no longer available", ignoreCase = true)) return false
-        val vistos = mutableSetOf<String>()
-        (listOf(html) + desempaquetar(html)).forEach { texto ->
-            STREAM_EN_TEXTO.findAll(texto).forEach { hallado ->
-                val url = hallado.value
-                if (!vistos.add(url)) return@forEach
-                val hls = url.contains(".m3u8")
-                callback(
-                    ExtractorLink(
-                        source = name,
-                        name = servirDe(embed),
-                        url = url,
-                        referer = embed,
-                        quality = Qualities.Unknown.value,
-                        type = if (hls) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
-                    )
-                )
-            }
-        }
-        return true
-    }
-
-    /**
-     * Byse (la pestaña "Fm" del sitio) no sirve el video: entrega un sobre
-     * cifrado en AES-256-GCM junto a las partes de la clave y la version que
-     * dice cuales juntar. Se descifra aqui y sale el master.m3u8 firmado.
-     */
-    private suspend fun byseEnlaces(
-        embed: String,
-        referer: String,
-        callback: (ExtractorLink) -> Unit
-    ): Boolean {
-        val codigo = embed.substringAfter("/e/", "").substringBefore("/").substringBefore("?").trim()
-        if (codigo.isEmpty()) return false
-        val crudo = runCatching {
-            app.get("https://bysekoze.com/api/videos/$codigo", headers = cabeceras, referer = referer).text
-        }.getOrNull() ?: return false
-        val playback = runCatching { JSONObject(crudo).getJSONObject("playback") }.getOrNull() ?: return false
-        val partes = runCatching {
-            val lista = playback.getJSONArray("key_parts")
-            (0 until lista.length()).map { lista.optString(it, "") }.filter { it.isNotEmpty() }
-        }.getOrNull() ?: return false
-        if (partes.isEmpty()) return false
-        val version = playback.optInt("version", 1)
-        val pareja = 31 - version
-        val elegidas = if (version in 1..partes.size && pareja in 1..partes.size) {
-            listOf(partes[version - 1], partes[pareja - 1])
-        } else partes
-        val clave = elegidas.mapNotNull { deBase64(it) }.fold(ByteArray(0)) { uno, otro -> uno + otro }
-        if (clave.isEmpty()) return false
-        val iv = deBase64(playback.optString("iv")) ?: return false
-        val cifrado = deBase64(playback.optString("payload")) ?: return false
-        val claro = runCatching {
-            val cifrador = Cipher.getInstance("AES/GCM/NoPadding")
-            cifrador.init(
-                Cipher.DECRYPT_MODE,
-                SecretKeySpec(clave, "AES"),
-                GCMParameterSpec(128, iv)
-            )
-            cifrador.doFinal(cifrado)
-        }.getOrNull() ?: return false
-        val fuentes = runCatching {
-            JSONObject(String(claro, Charsets.UTF_8)).getJSONArray("sources")
-        }.getOrNull() ?: return false
-        var alguno = false
-        for (indice in 0 until fuentes.length()) {
-            val fuente = fuentes.optJSONObject(indice) ?: continue
-            val url = fuente.optString("url")
-            if (url.isEmpty()) continue
-            val etiqueta = fuente.optString("label").ifEmpty { "Byse" }
-            val esHls = fuente.optString("mime_type").contains("mpegurl") || url.contains(".m3u8")
-            alguno = true
-            callback(
-                ExtractorLink(
-                    source = name,
-                    name = "Byse $etiqueta",
-                    url = url,
-                    referer = "https://bysekoze.com/",
-                    quality = etiqueta.filter { it.isDigit() }.toIntOrNull() ?: Qualities.Unknown.value,
-                    type = if (esHls) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
-                )
-            )
-        }
-        return alguno
-    }
-
-    private fun deBase64(texto: String): ByteArray? {
-        if (texto.isEmpty()) return null
-        return runCatching { Base64.decode(texto, Base64.URL_SAFE or Base64.NO_WRAP) }
-            .getOrElse { runCatching { Base64.decode(texto, Base64.DEFAULT) }.getOrNull() }
-    }
-
-    private fun servirDe(embed: String): String {
-        val host = embed.substringAfter("://").substringBefore("/")
-        return when {
-            host.contains("byse") -> "Byse"
-            host.contains("voe") -> "Voe"
-            host.contains("vidhide") -> "VidHide"
-            host.contains("wish") || host.contains("vgembed") -> "EmbedWish"
-            host.contains("strp2p") -> "StrP2P"
-            else -> host.removePrefix("www.")
-        }
+        return encontrado.get()
     }
 
     /**
