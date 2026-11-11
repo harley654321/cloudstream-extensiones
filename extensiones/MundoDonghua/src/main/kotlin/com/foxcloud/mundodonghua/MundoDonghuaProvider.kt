@@ -19,6 +19,7 @@ import com.lagradost.cloudstream3.utils.loadExtractor
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.Collections
 import java.util.concurrent.atomic.AtomicBoolean
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
@@ -239,22 +240,31 @@ class MundoDonghuaProvider : MainAPI() {
         val html = pedir(data) ?: return false
         val doc = runCatching { Jsoup.parse(html, data) }.getOrNull()
 
-        val servidores = linkedSetOf<String>()
-        servidores.addAll(embedsDe(html))
-        doc?.select("iframe[src]")?.forEach { marco ->
-            marco.attr("src").takeIf { it.startsWith("http") }?.let { servidores.add(it) }
-        }
+        val servidores = linkedMapOf<String, String>()
+        (embedsDe(html) + (doc?.select("iframe[src]")?.map { it.attr("src") } ?: emptyList()))
+            .filter { it.startsWith("http") }
+            .forEach { embed ->
+                // El mismo reproductor puede venir repetido con otra forma de la
+                // direccion (http/https, con parametros): se cuenta una sola vez.
+                val clave = claveDe(embed)
+                if (!servidores.containsKey(clave)) servidores[clave] = embed
+            }
         if (servidores.isEmpty()) return false
 
         val encontrado = AtomicBoolean(false)
+        // Un mismo enlace puede llegar dos veces desde el extractor; se queda el
+        // primero para que la lista de fuentes no salga repetida.
+        val emitidos = Collections.synchronizedSet(mutableSetOf<String>())
         withTimeoutOrNull(TOTAL_MS) {
             coroutineScope {
-                servidores.map { embed ->
+                servidores.values.map { embed ->
                     async {
                         runCatching {
                             loadExtractor(embed, data, subtitleCallback) { enlace ->
-                                encontrado.set(true)
-                                callback(enlace)
+                                if (emitidos.add(enlace.url.trim())) {
+                                    encontrado.set(true)
+                                    callback(enlace)
+                                }
                             }
                         }
                     }
@@ -262,6 +272,14 @@ class MundoDonghuaProvider : MainAPI() {
             }
         }
         return encontrado.get()
+    }
+
+    /** Identidad de un reproductor: host y ruta, sin esquema ni parametros. */
+    private fun claveDe(embed: String): String {
+        val resto = embed.substringAfter("://", "")
+        val host = resto.substringBefore('/').removePrefix("www.").lowercase()
+        val ruta = resto.substringAfter('/', "").substringBefore('?').substringBefore('#').trimEnd('/')
+        return "$host/$ruta"
     }
 
     /**
