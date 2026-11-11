@@ -31,7 +31,8 @@ import org.jsoup.nodes.Document
  *  - peliculas: /peliculas/<slug>/      archivo paginado /peliculas/
  *  - series:    /serie-de-tv/<slug>/    archivo paginado /serie-de-tv/
  *  - episodios: /capitulo/<slug>-<t>x<e>/
- *  - generos/idiomas: /genero/<slug>/  (latino, castellano, subtitulado)
+ *  - generos: /genero/<slug>/  (accion, drama, animacion...)
+ *  - los /genero/latino|castellano|subtitulado son filtros de idioma, no secciones
  *  - paginacion: /page/N/ y texto "Pagina X de Y"
  *  - busqueda: /?s=<texto>
  *
@@ -48,14 +49,20 @@ class Cineplus123Provider : MainAPI() {
 
     override val hasMainPage = true
     override val hasQuickSearch = false
-    override val hasDownloadSupport = false
+    override val hasDownloadSupport = true
 
+    // Solo secciones reales del sitio (autopsia del 2026-11-10):
+    //  - /peliculas/ 224 paginas, /serie-de-tv/ 22 paginas
+    //  - /ano/<anio>/ (archivo por anio, el actual tiene 11 paginas)
+    //  - /genero/accion/ 55 paginas, /genero/animacion/ 20 paginas
+    // Los /genero/latino|castellano|subtitulado NO van aqui: son filtros de
+    // idioma y listan los mismos titulos. El idioma se elige en los servidores.
     override val mainPage = mainPageOf(
         "peliculas" to "Peliculas",
         "series" to "Series",
-        "latino" to "Latino",
-        "castellano" to "Castellano",
-        "subtitulado" to "Subtitulado"
+        "estrenos" to ("Estrenos " + java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)),
+        "accion" to "Accion",
+        "animacion" to "Animacion"
     )
 
     private val paginaRegex = Regex("""/page/(\d+)/?""")
@@ -66,6 +73,7 @@ class Cineplus123Provider : MainAPI() {
     private val fileRegex = Regex("""file\s*:\s*"(https?://[^"]+)"""")
 
     private val idiomas = listOf("LATINO", "CASTELLANO", "SUBTITULADO")
+    private val etiquetasIdioma = setOf("latino", "castellano", "subtitulado")
 
     // ---------------------------------------------------------------- portada
 
@@ -85,12 +93,14 @@ class Cineplus123Provider : MainAPI() {
         return newHomePageResponse(request.name, items, ultima > hasta)
     }
 
+    private fun anioActual(): Int = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+
     private fun urlLista(kind: String, page: Int): String {
         val base = mainUrl.trimEnd('/') + when (kind) {
             "series" -> "/serie-de-tv/"
-            "latino" -> "/genero/latino/"
-            "castellano" -> "/genero/castellano/"
-            "subtitulado" -> "/genero/subtitulado/"
+            "estrenos" -> "/ano/" + anioActual() + "/"
+            "accion" -> "/genero/accion/"
+            "animacion" -> "/genero/animacion/"
             else -> "/peliculas/"
         }
         // Concatenado a mano, sin plantillas: asi no hay forma de escaparlo mal.
@@ -155,8 +165,10 @@ class Cineplus123Provider : MainAPI() {
             doc.select("[itemprop=description]").map { it.text().trim() })
             .firstOrNull { it.length > 60 }
 
-        val etiquetas = doc.select("a[href*='/genero/']").map { it.text().trim() }
-            .filter { it.isNotEmpty() && it.uppercase() !in idiomas }
+        val etiquetas = doc.select("a[href*='/genero/']")
+            .filter { !etiquetasIdioma.contains(it.attr("href").trimEnd('/').substringAfterLast('/')) }
+            .map { it.text().trim() }
+            .filter { it.isNotEmpty() }
             .distinct()
 
         val anio = doc.select("a[href*='/ano/']").mapNotNull { it.text().trim().toIntOrNull() }

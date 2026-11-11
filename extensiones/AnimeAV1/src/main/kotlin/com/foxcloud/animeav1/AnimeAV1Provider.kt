@@ -50,7 +50,7 @@ class AnimeAV1Provider : MainAPI() {
 
     override val hasMainPage = true
     override val hasQuickSearch = false
-    override val hasDownloadSupport = false
+    override val hasDownloadSupport = true
 
     // Todas las secciones son listas reales y distintas de la propia web.
     override val mainPage = mainPageOf(

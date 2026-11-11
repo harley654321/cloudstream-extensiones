@@ -45,7 +45,7 @@ class CinecalidadProvider : MainAPI() {
 
     override val hasMainPage = true
     override val hasQuickSearch = false
-    override val hasDownloadSupport = false
+    override val hasDownloadSupport = true
 
     override val mainPage = mainPageOf(
         "movies" to "Peliculas",
