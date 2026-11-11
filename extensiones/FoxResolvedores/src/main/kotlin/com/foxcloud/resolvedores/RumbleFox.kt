@@ -53,6 +53,22 @@ class RumbleFox : ExtractorApi() {
 
         val emitidos = mutableSetOf<String>()
 
+        // Muchos videos de Rumble ya solo van por HLS: el master viene en
+        // "hls":{"url":"https://rumble.com/hls-vod/<codigo>/playlist.m3u8"}.
+        val hls = Regex(""""hls":\{"url":"(https://[^"]+?\.m3u8)"""")
+            .find(html)
+            ?.groupValues
+            ?.get(1)
+        if (hls != null) {
+            emitidos.add(hls)
+            callback(
+                newExtractorLink(name, "Rumble HLS", hls, ExtractorLinkType.M3U8) {
+                    this.referer = "https://rumble.com/"
+                    this.quality = Qualities.Unknown.value
+                }
+            )
+        }
+
         // Pistas por calidad (las que trae "ua": 240, 360, 480, 720...).
         Regex(""""(240|360|480|720|1080|1440|2160)":\{"url":"(https://[^"]+?\.mp4)"""")
             .findAll(html)
