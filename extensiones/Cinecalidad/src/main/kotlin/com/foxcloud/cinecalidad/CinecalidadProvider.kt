@@ -95,7 +95,8 @@ class CinecalidadProvider : MainAPI() {
             "estrenos" -> "$mainUrl/fecha-de-lanzamiento/${anioActual()}/"
             else -> "$mainUrl/genero-de-la-pelicula/$kind/"
         }
-        return if (page <= 1) base else "\${base}page/\$page/"
+        // Sin plantillas para no arriesgar el escapado: se concatena a mano.
+        return if (page <= 1) base else base.trimEnd('/') + "/page/" + page + "/"
     }
 
     // ---------------------------------------------------------------- busqueda

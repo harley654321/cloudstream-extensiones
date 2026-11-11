@@ -1,13 +1,13 @@
 {
   "repo": "https://github.com/harley654321/cloudstream-extensiones",
-  "generado": "2026-11-10T23:56:51Z",
+  "generado": "2026-11-10T22:05:32Z",
   "api": "CloudStream 4.9.1",
-  "total": 3,
+  "total": 2,
   "extensiones": [
     {
       "nombre": "AnimeAV1",
       "interno": "AnimeAV1",
-      "version": 9,
+      "version": 7,
       "status": 1,
       "autores": [
         "harley654321"
@@ -19,27 +19,9 @@
         "AnimeMovie",
         "OVA"
       ],
-      "bytes": 30430,
-      "hash": "sha256-4d982eefc5bce432c6a240b0a9735d6b062ba3a21cb6ec69403da45a7989965e",
-      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/AnimeAV1-v9.cs3"
-    },
-    {
-      "nombre": "Cinecalidad",
-      "interno": "Cinecalidad",
-      "version": 5,
-      "status": 1,
-      "autores": [
-        "harley654321"
-      ],
-      "descripcion": "Cinecalidad: peliculas y series en latino con estrenos, generos y servidores Vimeos",
-      "idioma": "es",
-      "tipos": [
-        "Movie",
-        "TvSeries"
-      ],
-      "bytes": 20812,
-      "hash": "sha256-f895d56be4431a012283b3dae502b2f5dcb22380c7bb2df4e43a0891886b2dbc",
-      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/Cinecalidad-v5.cs3"
+      "bytes": 27642,
+      "hash": "sha256-a58c97e43e91e0822b82ce9d0e265cf558014487a6c879da8067c029bfdc20ad",
+      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/AnimeAV1-v7.cs3"
     },
     {
       "nombre": "PlantillaProvider",
