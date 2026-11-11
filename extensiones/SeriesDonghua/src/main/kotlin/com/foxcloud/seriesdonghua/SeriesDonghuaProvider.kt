@@ -142,7 +142,7 @@ class SeriesDonghuaProvider : MainAPI() {
             salida.add(newAnimeSearchResponse(nombre, destino, TvType.Anime) { this.posterUrl = poster })
         }
 
-        val paginas = doc.select("a[href*=page=]").mapNotNull { enlace ->
+        val paginas = doc.select("a[href]").mapNotNull { enlace ->
             Regex("""[?&]page=(\d+)""").find(enlace.attr("href"))?.groupValues?.get(1)?.toIntOrNull()
         }
         val hayMas = paginas.any { it > page }
