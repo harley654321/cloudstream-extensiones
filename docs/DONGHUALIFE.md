@@ -1,6 +1,6 @@
 # DonghuaLife (donghualife.com)
 
-Donghua subtitulado en español. Extensión **v1** de la fábrica.
+Donghua subtitulado en español. Extensión **v4** de la fábrica.
 
 ## Cómo está hecho el sitio
 
@@ -13,8 +13,8 @@ JavaScript: se pide la página y se lee.
 | Fila | Dirección | Páginas | Notas |
 |---|---|---|---|
 | Últimos capítulos | `/ultimos-episodios` | 1 | 88 capítulos por página |
-| Series | `/series?page=N` | 15 | 24 por página |
-| Películas | `/peliculas?page=N` | 2 | 24 por página |
+| Series | `/series?page=N` | 15 | 25 por página |
+| Películas | `/peliculas?page=N` | 2 | 25 y 15 |
 | Tendencias | `/rankings` | 1 | 10 obras |
 
 Comprobado que `/ultimos-episodios` **ignora el parámetro de página**: con
@@ -76,10 +76,34 @@ la app.
 
 ## Subtítulos
 
-`/api/subtitles?episodeId=<id>` da la lista ("Español (Estilos)") y
-`/api/subtitles/<id>` devuelve el `.ass` **envuelto en JSON**. No existe ruta que
-sirva el archivo crudo (`?raw=1`, `.ass` y `/file` dan 404 o el mismo JSON), así
-que hoy no se pueden entregar como pista externa sin romper la app.
+No hacen falta: los capítulos vienen **subtitulados en la imagen**. El audio está
+en chino original (transcrito de un capítulo para comprobarlo) y el español está
+quemado en el vídeo, como en cualquier página de este tipo.
+
+El sitio además guarda un `.ass` propio en
+`/api/subtitles?episodeId=<id>` y `/api/subtitles/<id>`, pero es su **archivo de
+trabajo** para quemar esos subtítulos: lleva dentro el cartel de
+"Donghualife.com" y las fuentes de Aegisub. No es una pista para el espectador y
+el sitio no ofrece ninguna ruta con el archivo crudo (`?raw=1`, `.ass` y `/file`
+dan 404 o el mismo JSON). Por eso la extensión no ofrece pista de subtítulos.
+
+## Entrar desde "Últimos capítulos"
+
+Las tarjetas de esa fila apuntan a `/watch/<temporada>-<número>`. La página del
+capítulo lleva en su payload `"seriesSlug"`, así que al pulsar se carga la ficha
+de la obra **completa**: todas las temporadas, todos los capítulos y la sinopsis.
+
+Antes se armaba una ficha con ese único capítulo y sin trama, y por eso la app
+mostraba la obra vacía ("Trama no encontrada"). Si algún día el payload no trae
+el `seriesSlug`, se usa el primer enlace `/series/<slug>` de la página.
+
+## Miniaturas de los capítulos
+
+`/api/series/<slug>/seasons/<temporada>/episodes` trae un campo `image` por
+capítulo y responde 200, pero **es la misma imagen de la serie** para todos (en
+Doupo Cangqiong, 5 capítulos seguidos dan un solo archivo distinto). El sitio no
+tiene capturas por capítulo; la extensión usa la del capítulo y, si faltara, la
+portada de la temporada.
 
 ## Portadas
 

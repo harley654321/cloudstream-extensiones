@@ -405,30 +405,50 @@ class DonghuaLifeProvider : MainAPI() {
         }
     }
 
-    private suspend fun capituloSuelto(url: String): LoadResponse? {
-        val doc = documento(url) ?: return null
+    /**
+     * Un enlace suelto de capitulo (/watch/...) abre la obra completa. La pagina
+     * del capitulo trae en su payload "seriesSlug", asi que se carga la ficha de
+     * la serie con todas sus temporadas y capitulos.
+     *
+     * Antes se devolvia nada mas ese capitulo: al entrar desde "Ultimos
+     * capitulos" la app mostraba la obra con un unico episodio y sin trama.
+     */
+    private suspend fun serieDeCapitulo(url: String): LoadResponse? {
+        val crudo = pedir(url) ?: return null
+        val limpio = crudo.replace("\\\"", "\"")
+        val slug = Regex("\"seriesSlug\":\"([^\"]+)\"").find(limpio)
+            ?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+            ?: Regex("href=\"/series/([a-z0-9-]+)\"").find(crudo)
+                ?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+
+        if (slug != null) ficha("$mainUrl/series/$slug")?.let { return it }
+
+        // Sin serie reconocible se arma una ficha minima con la trama disponible.
+        val doc = runCatching { Jsoup.parse(crudo, url) }.getOrNull() ?: return null
         val titular = doc.selectFirst("h1")?.text()?.trim()?.takeIf { it.isNotEmpty() }
             ?: doc.selectFirst("meta[property=og:title]")?.attr("content")?.trim()
             ?: return null
         val poster = doc.selectFirst("meta[property=og:image]")?.attr("content")
             ?.takeIf { it.isNotBlank() }?.let { absoluto(it) }
+        val sinopsis = doc.selectFirst("meta[property=og:description]")?.attr("content")?.trim()
+            ?.takeIf { it.isNotEmpty() }
         val numero = Regex("""Cap(?:[ií]tulo|\.)\s*(\d+)""", RegexOption.IGNORE_CASE)
             .find(titular)?.groupValues?.get(1)?.toIntOrNull()
 
-        val unico = listOf(
+        return newTvSeriesLoadResponse(titular, url, TvType.Anime, listOf(
             newEpisode(url) {
                 this.name = titular
                 this.episode = numero
                 this.posterUrl = poster
             }
-        )
-        return newTvSeriesLoadResponse(titular, url, TvType.Anime, unico) {
+        )) {
             this.posterUrl = poster
+            this.plot = sinopsis
         }
     }
 
     override suspend fun load(url: String): LoadResponse? = when {
-        url.contains("/watch/") -> capituloSuelto(url)
+        url.contains("/watch/") -> serieDeCapitulo(url)
         url.contains("/peliculas/") -> pelicula(url)
         url.contains("/series/") -> ficha(url)
         else -> null
