@@ -45,8 +45,10 @@ class OkRuFox : ExtractorApi() {
         // El JSON del reproductor viene dentro de un atributo HTML: se desescapa
         // igual que hace la app para poder leerlo como texto normal.
         val html = crudo
+            .replace("&quot;", "\"")
             .replace("\\&quot;", "\"")
-            .replace("\\\\", "\\")
+            .replace("\\/", "/")
+            .replace("&amp;", "&")
             .replace(Regex("""\\u([0-9A-Fa-f]{4})""")) { it.groupValues[1].toInt(16).toChar().toString() }
 
         val hls = Regex("""hlsManifestUrl"?\s*:\s*"?([^"'\\]+)""").find(html)?.groupValues?.get(1)
