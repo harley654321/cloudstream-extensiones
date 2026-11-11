@@ -31,6 +31,10 @@
     "SeriesDonghua": {
       "version": 6,
       "hash": "8c63faf081a46dc9026a53dc995b939d8341baa41a02d6548cef7d37d656caf8"
+    },
+    "DonghuaLife": {
+      "version": 1,
+      "hash": "134f0ea79c3d04fb64ddc6192949aaec8f13b63e0dcb1b705a09b2c4718db07a"
     }
   }
 }

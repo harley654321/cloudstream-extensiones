@@ -1,8 +1,8 @@
 {
   "repo": "https://github.com/harley654321/cloudstream-extensiones",
-  "generado": "2026-11-11T18:22:51Z",
+  "generado": "2026-11-11T18:39:19Z",
   "api": "CloudStream 4.9.1",
-  "total": 8,
+  "total": 9,
   "extensiones": [
     {
       "nombre": "AnimeAV1",
@@ -58,6 +58,25 @@
       "bytes": 33686,
       "hash": "sha256-312be05c201725a4c110b89a1887da6e67080fa1e4dac1b7b73156c12bd5ad85",
       "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/Cineplus123-v9.cs3"
+    },
+    {
+      "nombre": "DonghuaLife",
+      "interno": "DonghuaLife",
+      "version": 1,
+      "status": 1,
+      "autores": [
+        "harley654321"
+      ],
+      "descripcion": "DonghuaLife: donghua subtitulado en espanol. Ultimos capitulos, catalogo de series (15 paginas), peliculas, tendencias y buscador. Temporadas completas y todos los servidores de cada capitulo (HLS propio hasta 4K, Rumble, Dailymotion, Odysee, Ok.ru)",
+      "idioma": "es",
+      "tipos": [
+        "Anime",
+        "AnimeMovie",
+        "OVA"
+      ],
+      "bytes": 34140,
+      "hash": "sha256-c29e3c0958697d0044611ec9ff1808d3bfc0a11738673f83a7ffad56fae3d23c",
+      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/DonghuaLife-v1.cs3"
     },
     {
       "nombre": "FoxResolvedores",
