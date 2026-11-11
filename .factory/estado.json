@@ -5,8 +5,16 @@
       "hash": "8b6ff053d0e934064aebb957c2c1251d8b4a938aa45e27bba6f17132d9df83d2"
     },
     "AnimeAV1": {
-      "version": 7,
-      "hash": "3c666fe106a98b076ae1a05ea84f96be082faaa06cfc59eb2abf92cb5bdabb9a"
+      "version": 9,
+      "hash": "14510f83f4b98d9b7194f0d803e515e3b06606477b8ad623c1446ffca8f36057"
+    },
+    "Cinecalidad": {
+      "version": 6,
+      "hash": "cfd76e30005b14991268f0a6bd8ffb95121299842cd30a17e8623e6af1cbb9f0"
+    },
+    "Cineplus123": {
+      "version": 1,
+      "hash": "293e576358a7f1810f3e4a58da07484ef765dd6c721955cf98be035e03fbe995"
     }
   }
 }
