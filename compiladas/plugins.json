@@ -61,10 +61,10 @@
     "name": "Cineplus123"
   },
   {
-    "fileHash": "sha256-8e105341e74a9907ad6fbb74e24d1929f3d94ea7584d50b598dd2c1461b53f2c",
+    "fileHash": "sha256-dfdc81f0b7084a970c9311accbdb626293f42053afbfcce6c61f987c012a90ea",
     "apiVersion": 1,
     "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",
-    "fileSize": 34303,
+    "fileSize": 34588,
     "status": 1,
     "language": "es",
     "authors": [
@@ -75,10 +75,10 @@
       "AnimeMovie",
       "OVA"
     ],
-    "version": 2,
+    "version": 3,
     "internalName": "DonghuaLife",
     "description": "DonghuaLife: donghua subtitulado en espanol. Ultimos capitulos, catalogo de series (15 paginas), peliculas, tendencias y buscador. Temporadas completas y todos los servidores de cada capitulo (HLS propio hasta 4K, Rumble, Dailymotion, Odysee, Ok.ru)",
-    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/DonghuaLife-v2.cs3",
+    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/DonghuaLife-v3.cs3",
     "name": "DonghuaLife"
   },
   {

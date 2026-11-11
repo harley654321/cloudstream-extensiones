@@ -1,6 +1,6 @@
 {
   "repo": "https://github.com/harley654321/cloudstream-extensiones",
-  "generado": "2026-11-11T18:41:13Z",
+  "generado": "2026-11-11T18:53:05Z",
   "api": "CloudStream 4.9.1",
   "total": 9,
   "extensiones": [
@@ -62,7 +62,7 @@
     {
       "nombre": "DonghuaLife",
       "interno": "DonghuaLife",
-      "version": 2,
+      "version": 3,
       "status": 1,
       "autores": [
         "harley654321"
@@ -74,9 +74,9 @@
         "AnimeMovie",
         "OVA"
       ],
-      "bytes": 34303,
-      "hash": "sha256-8e105341e74a9907ad6fbb74e24d1929f3d94ea7584d50b598dd2c1461b53f2c",
-      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/DonghuaLife-v2.cs3"
+      "bytes": 34588,
+      "hash": "sha256-dfdc81f0b7084a970c9311accbdb626293f42053afbfcce6c61f987c012a90ea",
+      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/DonghuaLife-v3.cs3"
     },
     {
       "nombre": "FoxResolvedores",
