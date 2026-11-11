@@ -158,25 +158,33 @@ class DonghuaLifeProvider : MainAPI() {
     }
 
     /**
-     * En los catalogos la portada viene dentro del optimizador de Next
-     * (/_next/image?url=%2Fuploads%2F...&w=...), asi que se saca la direccion
-     * real y se pide tal cual la sirve el sitio, igual que en las demas
-     * extensiones de la fabrica: sin intermediarios ni reducciones.
+     * Portada de una tarjeta. En los catalogos de series y peliculas la imagen
+     * pasa por el optimizador de Next (/_next/image?url=%2Fimages%2F...), asi
+     * que se saca la ruta original y se pide tal cual la sirve el sitio, igual
+     * que en las demas extensiones de la fabrica: sin intermediarios ni
+     * reducciones. En los capitulos la direccion ya viene directa.
      */
     private fun imagen(img: Element): String? {
+        val candidatos = mutableListOf<String>()
         val directa = img.attr("src").ifBlank { img.attr("data-src") }
-        if (directa.isNotBlank() && !directa.startsWith("data:")) return absoluto(directa)
+        if (directa.isNotBlank() && !directa.startsWith("data:")) candidatos.add(directa)
 
         val conjunto = img.attr("srcSet").ifBlank { img.attr("srcset") }
-        if (conjunto.isBlank()) return null
-        val elegida = conjunto.split(",")
-            .map { it.trim().substringBefore(" ") }
-            .lastOrNull { it.isNotBlank() } ?: return null
+        if (conjunto.isNotBlank()) {
+            candidatos.addAll(
+                conjunto.split(",")
+                    .map { it.trim().substringBefore(" ") }
+                    .filter { it.isNotBlank() }
+            )
+        }
+        if (candidatos.isEmpty()) return null
 
-        val interno = Regex("""[?&]url=([^&]+)""").find(elegida)?.groupValues?.get(1)
-        val ruta = if (interno != null) {
-            runCatching { URLDecoder.decode(interno, "UTF-8") }.getOrDefault(interno)
-        } else elegida
+        candidatos.firstOrNull { !it.contains("/_next/image") }?.let { return absoluto(it) }
+
+        val optimizada = candidatos.last()
+        val interno = Regex("""[?&]url=([^&]+)""").find(optimizada)?.groupValues?.get(1)
+            ?: return absoluto(optimizada)
+        val ruta = runCatching { URLDecoder.decode(interno, "UTF-8") }.getOrDefault(interno)
         return absoluto(ruta)
     }
 
