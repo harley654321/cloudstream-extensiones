@@ -75,10 +75,14 @@ class MundoDonghuaProvider : MainAPI() {
 
     // ------------------------------------------------------------- red
 
-    private suspend fun pedir(url: String, referer: String? = null): String? {
-        repeat(REINTENTOS) { intento ->
+    private suspend fun pedir(
+        url: String,
+        referer: String? = null,
+        intentos: Int = REINTENTOS
+    ): String? {
+        repeat(intentos) { intento ->
             runCatching { return app.get(url, headers = cabeceras, referer = referer).text }
-            if (intento < REINTENTOS - 1) Thread.sleep(500L * (intento + 1))
+            if (intento < intentos - 1) Thread.sleep(500L * (intento + 1))
         }
         return null
     }
@@ -229,20 +233,22 @@ class MundoDonghuaProvider : MainAPI() {
         // 1. Lectura directa. EmbedWish y VidHide entregan su m3u8 dentro del
         //    JavaScript del reproductor, asi que se saca en un par de peticiones
         //    rapidas y sin depender de los extractores de la app.
+        val vivos = mutableListOf<String>()
         enOrden.forEach { embed ->
-            runCatching {
+            val vivo = runCatching {
                 enlacesDirectos(embed, data) { enlace ->
                     alguno = true
                     callback(enlace)
                 }
-            }
+            }.getOrDefault(true)
+            if (vivo) vivos.add(embed)
         }
 
         // 2. Solo si no salio nada (Byse y Voe cifran el reproductor) se pasa
         //    por la lista de extractores, y se corta en el primero que responda
         //    para que ninguna obra se quede cargando eternamente.
         if (!alguno) {
-            for (embed in enOrden) {
+            for (embed in vivos) {
                 var resuelto = false
                 runCatching {
                     loadExtractor(embed, data, subtitleCallback) { enlace ->
@@ -271,13 +277,26 @@ class MundoDonghuaProvider : MainAPI() {
         }
     }
 
-    /** Ultimo recurso: leer el reproductor y quedarse con su playlist. */
+    /**
+     * Lee el reproductor y se queda con su playlist. Devuelve true si la pagina
+     * sigue viva (aunque no lleve playlist), para no gastar intentos con los
+     * extractores en los servidores que el propio sitio ya da por borrados.
+     */
     private suspend fun enlacesDirectos(
         embed: String,
         referer: String,
         callback: (ExtractorLink) -> Unit
-    ) {
-        val html = pedir(embed, referer) ?: return
+    ): Boolean {
+        // Un solo intento: si el reproductor no contesta rapido, se pasa al
+        // siguiente en vez de repetir y dejar al usuario esperando.
+        // Si el reproductor no responde desde aqui (bloquea la conexion o
+        // tarda), se deja vivo: puede que el extractor de la app si entre.
+        val respuesta = runCatching {
+            app.get(embed, headers = cabeceras, referer = referer)
+        }.getOrNull() ?: return true
+        if (respuesta.code == 404 || respuesta.code == 410) return false
+        val html = respuesta.text
+        if (html.contains("no longer available", ignoreCase = true)) return false
         val vistos = mutableSetOf<String>()
         (listOf(html) + desempaquetar(html)).forEach { texto ->
             STREAM_EN_TEXTO.findAll(texto).forEach { hallado ->
@@ -296,6 +315,7 @@ class MundoDonghuaProvider : MainAPI() {
                 )
             }
         }
+        return true
     }
 
     private fun servirDe(embed: String): String {
@@ -333,12 +353,33 @@ class MundoDonghuaProvider : MainAPI() {
         return salida
     }
 
+    /**
+     * Direcciones de reproductor que esconde cada episodio dentro de su
+     * JavaScript empaquetado. Solo esas: la pagina lleva ademas tipografias,
+     * analitica y librerias CDN, y pasarselas a los extractores era lo que
+     * dejaba la obra girando para siempre.
+     */
     private fun embedsDe(html: String): List<String> {
         val salida = linkedSetOf<String>()
-        (listOf(html) + desempaquetar(html)).forEach { texto ->
-            URL_EN_TEXTO.findAll(texto).forEach { salida.add(it.value) }
+        desempaquetar(html).forEach { texto ->
+            URL_EN_TEXTO.findAll(texto).forEach { hallado ->
+                if (esReproductor(hallado.value)) salida.add(hallado.value)
+            }
         }
-        return salida.toList()
+        return salida.toList().take(6)
+    }
+
+    private fun esReproductor(url: String): Boolean {
+        val resto = url.substringAfter("://", "")
+        val host = resto.substringBefore("/").removePrefix("www.")
+        if (host.isEmpty()) return false
+        // Scripts propios del sitio: envuelven al reproductor pero no sirven video.
+        if (host.contains("mdnemonic") || host.contains("mdplayer")) return false
+        if (host.contains("strp2p")) return true
+        val ruta = resto.substringAfter("/", "")
+        return ruta.startsWith("e/") || ruta.startsWith("v/") ||
+            ruta.startsWith("embed/") || ruta.startsWith("player/") ||
+            ruta.startsWith("video/")
     }
 
     private fun digito(valor: Int, base: Int): String {
