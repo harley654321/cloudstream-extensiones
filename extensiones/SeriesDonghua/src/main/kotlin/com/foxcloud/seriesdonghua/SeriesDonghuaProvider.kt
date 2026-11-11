@@ -102,15 +102,6 @@ class SeriesDonghuaProvider : MainAPI() {
         /** Tarjetas por pagina del sitio: si vienen todas, hay pagina siguiente. */
         const val TARJETAS_POR_PAGINA = 24
 
-        /**
-         * Portadas ligeras. El sitio sirve las caratulas a 1280x1795 y ~360 KB
-         * cada una: una fila de 24 son 8,6 MB y por eso tardaban en aparecer.
-         * Reducidas a 400 px quedan en ~40 KB (nueve veces menos). Si algun dia
-         * se quiere volver a la imagen original basta con poner esto en false.
-         */
-        const val MINIATURAS_LIGERAS = true
-        const val PROXY_IMAGENES = "https://wsrv.nl/"
-
         /** Servidores que ya no existen: no se les molesta. */
         val MUERTOS = listOf("streambb", "streamsb", "likessb", "sbthe", "sbplay")
     }
@@ -140,25 +131,12 @@ class SeriesDonghuaProvider : MainAPI() {
         else -> mainUrl + "/" + url.trimStart('/')
     }
 
-    /**
-     * Reduce la portada antes de mandarla a la app. Solo se toca lo que sirve el
-     * propio sitio; cualquier otra direccion (por ejemplo un alojador externo)
-     * se entrega tal cual.
-     */
-    private fun miniatura(url: String?, ancho: Int = 400): String? {
-        if (url.isNullOrBlank()) return null
-        if (!MINIATURAS_LIGERAS) return url
-        if (!url.contains("seriesdonghua.com")) return url
-        val limpio = url.substringAfter("://")
-        val codificado = URLEncoder.encode(limpio, "UTF-8")
-        return "$PROXY_IMAGENES?url=$codificado&w=$ancho&output=webp&q=78"
-    }
-
-    private fun portada(tarjeta: Element, ancho: Int = 400): String? {
+    /** La portada tal cual la sirve el sitio, igual que en el resto de extensiones. */
+    private fun portada(tarjeta: Element): String? {
         val img = tarjeta.selectFirst("img") ?: return null
         val src = img.attr("src").ifBlank { img.attr("data-src") }
         if (src.isBlank()) return null
-        return miniatura(absoluto(src), ancho)
+        return absoluto(src)
     }
 
     // ------------------------------------------------------------ portada
@@ -291,10 +269,8 @@ class SeriesDonghuaProvider : MainAPI() {
         val titulo = doc.selectFirst("h1")?.text()?.trim()?.takeIf { it.isNotEmpty() }
             ?: doc.selectFirst("meta[property=og:title]")?.attr("content")?.trim()
             ?: return null
-        val poster = miniatura(
-            doc.selectFirst("meta[property=og:image]")?.attr("content")?.takeIf { it.isNotBlank() },
-            500
-        )
+        val poster = doc.selectFirst("meta[property=og:image]")?.attr("content")
+            ?.takeIf { it.isNotBlank() }?.let { absoluto(it) }
         val sinopsis = doc.selectFirst("h2:contains(Sinopsis)")?.nextElementSibling()?.text()?.trim()
             ?.takeIf { it.isNotEmpty() }
         val generos = doc.select(".genre-pill").map { it.text().trim() }.filter { it.isNotEmpty() }

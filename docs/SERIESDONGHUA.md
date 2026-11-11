@@ -31,13 +31,12 @@ Detalles comprobados contra el sitio:
   `data-server-index`, y la dirección sale de `POST /api/player/get-server` con
   el token CSRF y la cookie de sesión (sin cookie responde 419).
 
-## Portadas ligeras
+## Portadas
 
-El sitio sirve las carátulas a 1280×1795 y ~360 KB. Una fila de 24 tarjetas son
-8,6 MB, y por eso las portadas tardaban en aparecer. La extensión pide la misma
-imagen reducida a 400 px (500 px en la ficha), lo que baja cada una a ~40 KB
-(nueve veces menos) sin tocar nada más. Se controla con `MINIATURAS_LIGERAS` en
-el companion del provider: `false` vuelve a la imagen original.
+Se piden **tal cual las sirve el sitio**, igual que en el resto de extensiones de
+la fábrica: ni intermediarios ni reducciones. El sitio las entrega a 1280×1795 y
+~360 KB por carátula (8,6 MB por fila de 24); es el mismo coste que tienen las
+demás extensiones y es aceptable.
 
 ## Servidores
 
