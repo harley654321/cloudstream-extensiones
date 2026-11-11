@@ -11,6 +11,7 @@ import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
 @CloudstreamPlugin
 class FoxResolvedoresPlugin : BasePlugin() {
     override fun load() {
+        registerMainAPI(FoxPrueba())
         registerExtractorAPI(UqloadFox())
         registerExtractorAPI(ByseFox())
         registerExtractorAPI(VidaraFox())

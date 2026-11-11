@@ -7,16 +7,20 @@ package com.foxcloud.resolvedores
  */
 object Campos {
     fun valor(texto: String, clave: String): String? {
-        val limpio = texto.replace(" ", "").replace("\n", "").replace("\r", "").replace("\t", "")
+        val limpio = normal(texto)
         val marca = "\"" + clave + "\":\""
         val inicio = limpio.indexOf(marca)
         if (inicio < 0) return null
         val valor = limpio.substring(inicio + marca.length).substringBefore('"')
-        return valor.ifBlank { null }?.replace("\\/", "/")
+        return valor.ifBlank { null }
     }
 
     /** Primer enlace de video (.m3u8 o .mp4) dentro de un texto. */
     fun archivo(texto: String): String? =
         Regex("""https?://[^"'\\\s]+?\.(?:m3u8|mp4)[^"'\\\s]*""")
-            .find(texto)?.value?.replace("\\/", "/")
+            .find(normal(texto))?.value
+
+    /** Quita espacios y barras escapadas (\/), que es como llegan muchos scripts. */
+    private fun normal(texto: String): String =
+        texto.replace("\\/", "/").replace(" ", "").replace("\n", "").replace("\r", "").replace("\t", "")
 }
