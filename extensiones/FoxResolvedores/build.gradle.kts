@@ -1,6 +1,7 @@
-version = 2
+version = 3
+
 cloudstream {
-    description = "Fox Resolvedores: reproductores que CloudStream no trae de serie (Uqload .vc, Byse, Vidara), registrados para todas las extensiones"
+    description = "Fox Resolvedores: reproductores que CloudStream no trae de serie (Uqload .vc, Byse). Complementa a la app, no la sustituye"
     authors = listOf("harley654321")
     status = 1
     tvTypes = listOf("Movie", "TvSeries")
