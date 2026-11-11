@@ -70,7 +70,15 @@ class Cineplus123Provider : MainAPI() {
     private val totalRegex = Regex("""de\s+(\d+)""")
     private val fichaRegex = Regex("""/(peliculas|serie-de-tv)/[a-z0-9-]+/?$""")
     private val episodioRegex = Regex("""-(\d+)x(\d+)/?$""")
-    private val embedRegex = Regex("""embed_url\s*:\s*"(.*?)"""")
+    /** Lee un campo de un JSON pequeño sin depender de comillas ni de regex. */
+    private fun campoJson(texto: String, clave: String): String? {
+        val limpio = texto.replace(" ", "").replace("\n", "").replace("\r", "")
+        val marca = "\"" + clave + "\":\""
+        val inicio = limpio.indexOf(marca)
+        if (inicio < 0) return null
+        val valor = limpio.substring(inicio + marca.length).substringBefore('"')
+        return valor.ifBlank { null }?.replace("\\/", "/")
+    }
     private val fileRegex = Regex("""file\s*:\s*"(https?://[^"]+)"""")
 
     private val idiomas = listOf("LATINO", "CASTELLANO", "SUBTITULADO")
@@ -378,6 +386,20 @@ class Cineplus123Provider : MainAPI() {
                 if (i >= 0) i else idiomas.size
             }
 
+        // Si no hay lista de servidores, se usan los reproductores que haya en el HTML.
+        if (opciones.isEmpty()) {
+            var algunoDirecto = false
+            embedsDirectos(doc).forEach { embed ->
+                val propioOk = runCatching {
+                    propio(embed, "") { link -> algunoDirecto = true; callback(link) }
+                }.getOrDefault(false)
+                if (!propioOk) {
+                    runCatching { loadExtractor(embed, data, subtitleCallback) { video -> algunoDirecto = true; callback(video) } }
+                }
+            }
+            if (algunoDirecto) return true
+        }
+
         val emitidos = mutableSetOf<String>()
         var alguno = false
 
@@ -453,9 +475,7 @@ class Cineplus123Provider : MainAPI() {
                     referer = embed
                 ).text
             }.getOrNull()
-            val enlace = cuerpo
-                ?.let { texto -> Regex("""streaming_url\s*:\s*"(.*?)"""").find(texto)?.groupValues?.get(1) }
-                ?.replace("\\/", "/")
+            val enlace = cuerpo?.let { texto -> campoJson(texto, "streaming_url") }
                 ?.takeIf { it.startsWith("http") }
             if (enlace != null) {
                 callback(
@@ -487,24 +507,48 @@ class Cineplus123Provider : MainAPI() {
 
     /** Dooplay resuelve el embed real por AJAX; devuelve la URL del reproductor. */
     private suspend fun embedDe(post: String, nume: String, tipo: String, referer: String): String? {
-        val texto = runCatching {
-            app.post(
-                mainUrl.trimEnd('/') + "/wp-admin/admin-ajax.php",
-                data = mapOf(
-                    "action" to "doo_player_ajax",
-                    "post" to post,
-                    "nume" to nume,
-                    "type" to tipo
-                ),
-                referer = referer,
-                headers = mapOf("X-Requested-With" to "XMLHttpRequest")
-            ).text
-        }.getOrNull() ?: return null
-        val embed = embedRegex.find(texto)?.groupValues?.get(1)?.replace("\\/", "/") ?: return null
-        return embed.takeIf { it.startsWith("http") }
+        val base = mainUrl.trimEnd('/') + "/wp-admin/admin-ajax.php"
+        val cuerpo = mapOf(
+            "action" to "doo_player_ajax",
+            "post" to post,
+            "nume" to nume,
+            "type" to tipo
+        )
+        // 1) POST normal
+        runCatching {
+            app.post(base, data = cuerpo, referer = referer).text
+        }.getOrNull()?.let { texto -> campoJson(texto, "embed_url") }?.let { return it }
+
+        // 2) el sitio a veces espera otro "type" (movie/tv)
+        val otro = if (tipo == "tv") "movie" else "tv"
+        runCatching {
+            app.post(base, data = cuerpo + ("type" to otro), referer = referer).text
+        }.getOrNull()?.let { texto -> campoJson(texto, "embed_url") }?.let { return it }
+
+        // 3) ultimo recurso: por GET
+        val consulta = "?action=doo_player_ajax&post=" + post + "&nume=" + nume + "&type=" + tipo
+        runCatching { app.get(base + consulta, referer = referer).text }
+            .getOrNull()?.let { texto -> campoJson(texto, "embed_url") }?.let { return it }
+
+        return null
     }
 
-    /** Byse: su reproductor es una SPA que pide los sources a /api/videos/<codigo>/embed/details. */
+    /** Si la ficha no trae lista de servidores, se buscan los reproductores en el HTML. */
+    private fun embedsDirectos(doc: Document): List<String> {
+        val salida = mutableListOf<String>()
+        val anfitrionSitio = mainUrl.substringAfter("://").substringBefore('/')
+        listOf("iframe[src]", "iframe[data-src]", "a[href]").forEach { selector ->
+            doc.select(selector).forEach { el ->
+                val url = el.attr("src").ifBlank { el.attr("data-src").ifBlank { el.attr("href") } }.trim()
+                if (!url.startsWith("http")) return@forEach
+                val host = url.substringAfter("://").substringBefore('/')
+                if (host.contains(anfitrionSitio) || host.contains("youtube") || host.contains("google")) return@forEach
+                if (url.contains("/e/") || url.contains("embed") || url.contains("/v/")) salida.add(url)
+            }
+        }
+        return salida.distinct()
+    }
+
     private suspend fun byse(embed: String, etiqueta: String, callback: (ExtractorLink) -> Unit): Boolean {
         val codigo = embed.trimEnd('/').substringAfterLast('/')
         val host = embed.substringAfter("://").substringBefore('/')
