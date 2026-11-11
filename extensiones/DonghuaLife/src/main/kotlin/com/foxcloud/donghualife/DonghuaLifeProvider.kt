@@ -111,7 +111,7 @@ class DonghuaLifeProvider : MainAPI() {
         const val AGENTE = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
             "(KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
 
-        const val REINTENTOS = 3
+        const val REINTENTOS = 4
 
         /**
          * Tope duro para resolver un capitulo entero: o sale algo en segundos,
@@ -537,18 +537,26 @@ class DonghuaLifeProvider : MainAPI() {
         return null
     }
 
-    /** POST /api/player/source con el token de la fuente: devuelve la direccion real. */
+    /**
+     * POST /api/player/source con el token de la fuente: devuelve la direccion
+     * real. El sitio limita peticiones, asi que si una tanda de fuentes falla se
+     * reintenta con espera creciente en vez de dar el capitulo por vacio.
+     */
     private suspend fun resolver(token: String, referer: String): String? {
-        val cuerpo = runCatching {
-            app.post(
-                "$mainUrl/api/player/source",
-                headers = cabecerasApi + mapOf("Referer" to referer, "Origin" to mainUrl),
-                json = mapOf("token" to token)
-            ).text
-        }.getOrNull() ?: return null
-
-        val url = runCatching { JSONObject(cuerpo).optString("url") }.getOrNull()
-            ?.takeIf { it.isNotBlank() } ?: return null
-        return absoluto(url)
+        repeat(REINTENTOS) { intento ->
+            val cuerpo = runCatching {
+                app.post(
+                    "$mainUrl/api/player/source",
+                    headers = cabecerasApi + mapOf("Referer" to referer, "Origin" to mainUrl),
+                    json = mapOf("token" to token)
+                ).text
+            }.getOrNull()
+            if (cuerpo != null) {
+                val url = runCatching { JSONObject(cuerpo).optString("url") }.getOrNull()
+                if (!url.isNullOrBlank()) return absoluto(url)
+            }
+            if (intento < REINTENTOS - 1) Thread.sleep(700L * (intento + 1))
+        }
+        return null
     }
 }
