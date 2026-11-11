@@ -9,13 +9,14 @@ import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.newExtractorLink
 
 /**
- * Byse (bysezoxexe.com). El reproductor es una SPA que publica sus fuentes
- * en /api/videos/<codigo>/embed/details. Si esa API no contesta, se mira el
- * HTML del embed por si trae el archivo directo.
+ * Familia Byse (bysezoxexe.com, byselapuix.com). Su reproductor es una SPA:
+ * primero se pide /api/videos/<codigo>/embed/details, que a veces trae
+ * "sources" y otras solo "embed_frame_url"; se prueban las dos y, si no hay
+ * suerte, se busca un archivo directo en el HTML.
  */
-class ByseFox : ExtractorApi() {
+class ByseFox(private val dominio: String = "https://bysezoxexe.com") : ExtractorApi() {
     override val name = "Fox Byse"
-    override val mainUrl = "https://bysezoxexe.com"
+    override val mainUrl = dominio
     override val requiresReferer = false
 
     override suspend fun getUrl(
@@ -28,12 +29,26 @@ class ByseFox : ExtractorApi() {
         val codigo = url.trimEnd('/').substringAfterLast('/').substringBefore('?')
         if (host.isBlank() || codigo.isBlank()) return
 
-        val archivo = runCatching {
-            val json = app.get("https://$host/api/videos/$codigo/embed/details", referer = url).text
-            Campos.valor(json, "file") ?: Campos.valor(json, "src")
-        }.getOrNull() ?: runCatching {
-            Campos.archivo(app.get(url, referer = referer ?: "https://$host/").text)
-        }.getOrNull()
+        val detalles = runCatching {
+            app.get("https://$host/api/videos/$codigo/embed/details", referer = url).text
+        }.getOrNull() ?: ""
+
+        var archivo = Campos.valor(detalles, "file") ?: Campos.valor(detalles, "src")
+
+        // Si la API no trae fuentes, se sigue el marco del reproductor.
+        if (archivo == null) {
+            val marco = Campos.valor(detalles, "embed_frame_url")
+            if (marco != null) {
+                val destino = if (marco.startsWith("http")) marco else "https://$host/" + marco.trimStart('/')
+                val html = runCatching { app.get(destino, referer = url).text }.getOrNull() ?: ""
+                archivo = Campos.archivo(html)
+            }
+        }
+
+        if (archivo == null) {
+            val html = runCatching { app.get(url, referer = "https://$host/").text }.getOrNull() ?: ""
+            archivo = Campos.archivo(html)
+        }
 
         if (archivo == null || !archivo.startsWith("http")) return
 
