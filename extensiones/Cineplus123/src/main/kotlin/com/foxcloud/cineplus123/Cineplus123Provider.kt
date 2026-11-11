@@ -326,18 +326,40 @@ class Cineplus123Provider : MainAPI() {
         doc.select("#seasons .se-c").forEachIndexed { indice, bloque ->
             val cabecera = bloque.selectFirst(".se-q, .se-t")?.text().orEmpty()
             val temporadaCabecera = Regex("""(\d+)""").find(cabecera)?.groupValues?.get(1)?.toIntOrNull()
-            bloque.select("ul.episodes li a[href], ul.episodios li a[href]").forEach { enlace ->
+            bloque.select("ul.episodes li, ul.episodios li").forEach { fila ->
+                val enlace = fila.selectFirst(".episodiotitle a[href]") ?: fila.selectFirst("a[href]") ?: return@forEach
                 val href = enlace.attr("href")
                 if (!href.contains("/capitulo/")) return@forEach
-                val m = episodioRegex.find(href)
-                val temporada = m?.groupValues?.get(1)?.toIntOrNull() ?: temporadaCabecera ?: (indice + 1)
-                val capitulo = m?.groupValues?.get(2)?.toIntOrNull()
-                val nombre = enlace.text().trim().ifEmpty { "Episodio " + (capitulo ?: 0) }
+
+                // Dooplay pone "1 - 2" en .numerando y "1x2" en la URL.
+                val numerando = fila.selectFirst(".numerando")?.text()?.trim().orEmpty()
+                val par = Regex("""(\d+)\s*-\s*(\d+)""").find(numerando)
+                val deUrl = episodioRegex.find(href)
+                val temporada = par?.groupValues?.get(1)?.toIntOrNull()
+                    ?: deUrl?.groupValues?.get(1)?.toIntOrNull()
+                    ?: temporadaCabecera ?: (indice + 1)
+                val capitulo = par?.groupValues?.get(2)?.toIntOrNull()
+                    ?: deUrl?.groupValues?.get(2)?.toIntOrNull()
+
+                // Miniatura propia del episodio (tmdb w154); se pide en w300.
+                val miniatura = fila.selectFirst(".imagen img")?.let { img ->
+                    img.attr("data-src").ifBlank { img.attr("src") }
+                }?.takeIf { it.startsWith("http") }?.replace("/w154/", "/w300/")
+
+                val tituloCap = enlace.text().trim()
+                val nombre = when {
+                    tituloCap.isNotEmpty() && capitulo != null -> temporada.toString() + "x" + capitulo + " \u00b7 " + tituloCap
+                    tituloCap.isNotEmpty() -> tituloCap
+                    capitulo != null -> "Episodio " + capitulo
+                    else -> "Episodio " + (episodios.size + 1)
+                }
+
                 episodios.add(
                     newEpisode(href) {
                         this.name = nombre
                         this.season = temporada
                         this.episode = capitulo
+                        this.posterUrl = miniatura
                     }
                 )
             }
