@@ -61,10 +61,10 @@
     "name": "Cineplus123"
   },
   {
-    "fileHash": "sha256-900e8350317ee7aba11589f626dd1651b49a92c9e41c5cc507a0be28048e9271",
+    "fileHash": "sha256-0a52dddad2785ff3873261a4c126c3f7afb3c202ca05cd3bda1063107ca9d015",
     "apiVersion": 1,
     "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",
-    "fileSize": 24317,
+    "fileSize": 24882,
     "status": 1,
     "language": "es",
     "authors": [
@@ -74,10 +74,10 @@
       "Movie",
       "TvSeries"
     ],
-    "version": 11,
+    "version": 12,
     "internalName": "FoxResolvedores",
     "description": "Fox Resolvedores: reproductores que CloudStream no trae de serie (Uqload .vc y la familia Byse). Complementa a la app, no la sustituye",
-    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/FoxResolvedores-v11.cs3",
+    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/FoxResolvedores-v12.cs3",
     "name": "FoxResolvedores"
   },
   {
