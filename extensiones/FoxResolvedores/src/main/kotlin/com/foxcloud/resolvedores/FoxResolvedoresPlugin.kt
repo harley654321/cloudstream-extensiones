@@ -13,6 +13,10 @@ import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
 class FoxResolvedoresPlugin : BasePlugin() {
     override fun load() {
         registerExtractorAPI(UqloadFox())
+        // OK.ru: la app busca una lista de mp4 que ya no existe; aqui va el HLS.
+        registerExtractorAPI(OkRuFox())
+        // Filemoon es Byse por dentro (misma API y mismo sobre cifrado).
+        registerExtractorAPI(ByseFox("https://filemoon.sx"))
         registerExtractorAPI(ByseFox("https://bysekoze.com"))
         registerExtractorAPI(ByseFox("https://bysezoxexe.com"))
         registerExtractorAPI(ByseFox("https://byselapuix.com"))
