@@ -61,10 +61,10 @@
     "name": "Cineplus123"
   },
   {
-    "fileHash": "sha256-057ce15a74f57e4114f370396e284737bfe452b4d892e6b2a0b68c498f460a72",
+    "fileHash": "sha256-900e8350317ee7aba11589f626dd1651b49a92c9e41c5cc507a0be28048e9271",
     "apiVersion": 1,
     "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",
-    "fileSize": 21090,
+    "fileSize": 24317,
     "status": 1,
     "language": "es",
     "authors": [
@@ -74,10 +74,10 @@
       "Movie",
       "TvSeries"
     ],
-    "version": 9,
+    "version": 11,
     "internalName": "FoxResolvedores",
     "description": "Fox Resolvedores: reproductores que CloudStream no trae de serie (Uqload .vc y la familia Byse). Complementa a la app, no la sustituye",
-    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/FoxResolvedores-v9.cs3",
+    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/FoxResolvedores-v11.cs3",
     "name": "FoxResolvedores"
   },
   {
@@ -142,10 +142,10 @@
     "name": "PlantillaProvider"
   },
   {
-    "fileHash": "sha256-6358a36e9044429008a13e9b868018b7c8c9b9b57bdee3604ec6f948eb375c8e",
+    "fileHash": "sha256-937f7171931f6787538ab390554cf216b1ea63e40284c98ffc31f598c52ab898",
     "apiVersion": 1,
     "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",
-    "fileSize": 24231,
+    "fileSize": 24254,
     "status": 1,
     "language": "es",
     "authors": [
@@ -156,10 +156,10 @@
       "AnimeMovie",
       "OVA"
     ],
-    "version": 2,
+    "version": 4,
     "internalName": "SeriesDonghua",
     "description": "Series Donghua: donghua subtitulado en espanol. Catalogo completo con paginacion real, en emision, finalizados, buscador y todos los servidores de cada episodio (Dailymotion, OK.ru, VOE, Filemoon, Rumble)",
-    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/SeriesDonghua-v2.cs3",
+    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/SeriesDonghua-v4.cs3",
     "name": "SeriesDonghua"
   }
 ]

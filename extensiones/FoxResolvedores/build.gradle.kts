@@ -1,4 +1,4 @@
-version = 10
+version = 11
 cloudstream {
     description = "Fox Resolvedores: reproductores que CloudStream no trae de serie (Uqload .vc y la familia Byse). Complementa a la app, no la sustituye"
     authors = listOf("harley654321")
