@@ -1,6 +1,6 @@
 {
   "repo": "https://github.com/harley654321/cloudstream-extensiones",
-  "generado": "2026-11-11T18:16:26Z",
+  "generado": "2026-11-11T18:22:51Z",
   "api": "CloudStream 4.9.1",
   "total": 8,
   "extensiones": [
@@ -135,7 +135,7 @@
     {
       "nombre": "SeriesDonghua",
       "interno": "SeriesDonghua",
-      "version": 5,
+      "version": 6,
       "status": 1,
       "autores": [
         "harley654321"
@@ -147,9 +147,9 @@
         "AnimeMovie",
         "OVA"
       ],
-      "bytes": 26070,
-      "hash": "sha256-419bab7668d609be53dfd4cfb93a4e5d41650862d1031f5e820202421cc91479",
-      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/SeriesDonghua-v5.cs3"
+      "bytes": 25673,
+      "hash": "sha256-c713388ba80ad2653882aec5e9492835523a5bd610df23005877e06dd2764bde",
+      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/SeriesDonghua-v6.cs3"
     }
   ]
 }
