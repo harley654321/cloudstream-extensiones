@@ -1,6 +1,6 @@
 {
   "repo": "https://github.com/harley654321/cloudstream-extensiones",
-  "generado": "2026-11-11T05:37:34Z",
+  "generado": "2026-11-11T05:46:20Z",
   "api": "CloudStream 4.9.1",
   "total": 6,
   "extensiones": [
@@ -80,7 +80,7 @@
     {
       "nombre": "Monoschinos",
       "interno": "Monoschinos",
-      "version": 7,
+      "version": 9,
       "status": 1,
       "autores": [
         "harley654321"
@@ -92,9 +92,9 @@
         "AnimeMovie",
         "OVA"
       ],
-      "bytes": 24235,
-      "hash": "sha256-0696f7b3455221e86cb05dac342d1d210ccfece7fa877e606eec0b9e558a537e",
-      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/Monoschinos-v7.cs3"
+      "bytes": 26112,
+      "hash": "sha256-a4137b36c8cfc49a9c645f45b2990a7ad70e436e3ac8c1b14208c298731b4284",
+      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/Monoschinos-v9.cs3"
     },
     {
       "nombre": "PlantillaProvider",

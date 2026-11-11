@@ -1,4 +1,4 @@
-version = 8
+version = 9
 cloudstream {
     description = "Monoschinos: anime en subtitulado espanol. Emision, catalogo con paginacion real, buscador y servidores por capitulo"
     authors = listOf("harley654321")

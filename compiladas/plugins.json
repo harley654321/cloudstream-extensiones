@@ -81,10 +81,10 @@
     "name": "FoxResolvedores"
   },
   {
-    "fileHash": "sha256-0696f7b3455221e86cb05dac342d1d210ccfece7fa877e606eec0b9e558a537e",
+    "fileHash": "sha256-a4137b36c8cfc49a9c645f45b2990a7ad70e436e3ac8c1b14208c298731b4284",
     "apiVersion": 1,
     "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",
-    "fileSize": 24235,
+    "fileSize": 26112,
     "status": 1,
     "language": "es",
     "authors": [
@@ -95,10 +95,10 @@
       "AnimeMovie",
       "OVA"
     ],
-    "version": 7,
+    "version": 9,
     "internalName": "Monoschinos",
     "description": "Monoschinos: anime en subtitulado espanol. Emision, catalogo con paginacion real, buscador y servidores por capitulo",
-    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/Monoschinos-v7.cs3",
+    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/Monoschinos-v9.cs3",
     "name": "Monoschinos"
   },
   {
