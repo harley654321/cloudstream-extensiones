@@ -1,8 +1,8 @@
 {
   "repo": "https://github.com/harley654321/cloudstream-extensiones",
-  "generado": "2026-11-11T17:10:46Z",
+  "generado": "2026-11-11T17:29:21Z",
   "api": "CloudStream 4.9.1",
-  "total": 7,
+  "total": 8,
   "extensiones": [
     {
       "nombre": "AnimeAV1",
@@ -62,7 +62,7 @@
     {
       "nombre": "FoxResolvedores",
       "interno": "FoxResolvedores",
-      "version": 7,
+      "version": 8,
       "status": 1,
       "autores": [
         "harley654321"
@@ -73,9 +73,9 @@
         "Movie",
         "TvSeries"
       ],
-      "bytes": 17058,
-      "hash": "sha256-6d8bd960af6a5b49ad8278a0a2deb1c98e1fe9f39e3729fe29af6095e2675062",
-      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/FoxResolvedores-v7.cs3"
+      "bytes": 21043,
+      "hash": "sha256-e796cd890145ede79ef207a05a563d9bf0f46882e9782bb54f81c5855c052fd0",
+      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/FoxResolvedores-v8.cs3"
     },
     {
       "nombre": "Monoschinos",
@@ -131,6 +131,25 @@
       "bytes": 8858,
       "hash": "sha256-66dbcc061da754ed8dcb5c5eb20cebd1cbb46abd30ff9fb7c93e6448a748e511",
       "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/PlantillaProvider-v3.cs3"
+    },
+    {
+      "nombre": "SeriesDonghua",
+      "interno": "SeriesDonghua",
+      "version": 1,
+      "status": 1,
+      "autores": [
+        "harley654321"
+      ],
+      "descripcion": "Series Donghua: donghua subtitulado en espanol. Catalogo completo con paginacion real, en emision, finalizados, buscador y todos los servidores de cada episodio (Dailymotion, OK.ru, VOE, Filemoon, Rumble)",
+      "idioma": "es",
+      "tipos": [
+        "Anime",
+        "AnimeMovie",
+        "OVA"
+      ],
+      "bytes": 24255,
+      "hash": "sha256-e9e1ef0589c05004622fec869b29d68dc5b4dacbe2c8ca00844b254d17e03520",
+      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/SeriesDonghua-v1.cs3"
     }
   ]
 }

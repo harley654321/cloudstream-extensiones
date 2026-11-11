@@ -17,8 +17,8 @@
       "hash": "c32a3f8a55bcf7857880f252f4b3adc7dfd582676329fca635a217d316ccfe89"
     },
     "FoxResolvedores": {
-      "version": 7,
-      "hash": "23515ac9d1077777215cbff9d1e604ce3f1721a0ebc9db279ed631ffdfd6f6fa"
+      "version": 8,
+      "hash": "c89bab167dc667a8e6e10ae293ce7f434137125fb5da341e8084f6b0cb0d6ad2"
     },
     "Monoschinos": {
       "version": 11,
@@ -27,6 +27,10 @@
     "MundoDonghua": {
       "version": 16,
       "hash": "cc5da8b4420296150df2a01bc2ab0b6f471a77b72a62e4f7bdf76c161ebed020"
+    },
+    "SeriesDonghua": {
+      "version": 1,
+      "hash": "c747277afb499f183323227f43db35bee301f573e3b6d90c31427c1e76c450ff"
     }
   }
 }

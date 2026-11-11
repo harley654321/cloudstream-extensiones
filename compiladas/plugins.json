@@ -61,10 +61,10 @@
     "name": "Cineplus123"
   },
   {
-    "fileHash": "sha256-6d8bd960af6a5b49ad8278a0a2deb1c98e1fe9f39e3729fe29af6095e2675062",
+    "fileHash": "sha256-e796cd890145ede79ef207a05a563d9bf0f46882e9782bb54f81c5855c052fd0",
     "apiVersion": 1,
     "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",
-    "fileSize": 17058,
+    "fileSize": 21043,
     "status": 1,
     "language": "es",
     "authors": [
@@ -74,10 +74,10 @@
       "Movie",
       "TvSeries"
     ],
-    "version": 7,
+    "version": 8,
     "internalName": "FoxResolvedores",
     "description": "Fox Resolvedores: reproductores que CloudStream no trae de serie (Uqload .vc y la familia Byse). Complementa a la app, no la sustituye",
-    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/FoxResolvedores-v7.cs3",
+    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/FoxResolvedores-v8.cs3",
     "name": "FoxResolvedores"
   },
   {
@@ -140,5 +140,26 @@
     "description": "Plantilla de demostracion de la fabrica: contenido abierto de la Blender Foundation",
     "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/PlantillaProvider-v3.cs3",
     "name": "PlantillaProvider"
+  },
+  {
+    "fileHash": "sha256-e9e1ef0589c05004622fec869b29d68dc5b4dacbe2c8ca00844b254d17e03520",
+    "apiVersion": 1,
+    "repositoryUrl": "https://github.com/harley654321/cloudstream-extensiones",
+    "fileSize": 24255,
+    "status": 1,
+    "language": "es",
+    "authors": [
+      "harley654321"
+    ],
+    "tvTypes": [
+      "Anime",
+      "AnimeMovie",
+      "OVA"
+    ],
+    "version": 1,
+    "internalName": "SeriesDonghua",
+    "description": "Series Donghua: donghua subtitulado en espanol. Catalogo completo con paginacion real, en emision, finalizados, buscador y todos los servidores de cada episodio (Dailymotion, OK.ru, VOE, Filemoon, Rumble)",
+    "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/SeriesDonghua-v1.cs3",
+    "name": "SeriesDonghua"
   }
 ]
