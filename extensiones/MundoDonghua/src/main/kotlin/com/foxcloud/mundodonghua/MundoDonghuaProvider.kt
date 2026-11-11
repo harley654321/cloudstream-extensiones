@@ -74,7 +74,7 @@ class MundoDonghuaProvider : MainAPI() {
          * corta todo, aunque algun reproductor siga intentandolo: nunca se deja
          * la obra cargando sin fin.
          */
-        const val TOTAL_MS = 15_000L
+        const val TOTAL_MS = 18_000L
         val PACKER = Regex(
             """eval\(function\(p,a,c,k,e,d\).*?\}\('((?:[^'\\]|\\.)*)',(\d+),(\d+),'((?:[^'\\]|\\.)*)'\.split\('\|'\)""",
             RegexOption.DOT_MATCHES_ALL
