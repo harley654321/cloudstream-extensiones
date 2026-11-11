@@ -386,20 +386,6 @@ class Cineplus123Provider : MainAPI() {
                 if (i >= 0) i else idiomas.size
             }
 
-        // Si no hay lista de servidores, se usan los reproductores que haya en el HTML.
-        if (opciones.isEmpty()) {
-            var algunoDirecto = false
-            embedsDirectos(doc).forEach { embed ->
-                val propioOk = runCatching {
-                    propio(embed, "") { link -> algunoDirecto = true; callback(link) }
-                }.getOrDefault(false)
-                if (!propioOk) {
-                    runCatching { loadExtractor(embed, data, subtitleCallback) { video -> algunoDirecto = true; callback(video) } }
-                }
-            }
-            if (algunoDirecto) return true
-        }
-
         val emitidos = mutableSetOf<String>()
         var alguno = false
 
@@ -408,24 +394,13 @@ class Cineplus123Provider : MainAPI() {
             if (!emitidos.add(embed)) continue
             if (embed.contains("youtube.com") || embed.contains("youtu.be")) continue
 
-            // Primero se resuelve a mano el host (Byse, Vidara, Uqload...), porque
-            // CloudStream no reconoce todos los dominios que usa este sitio.
-            val propioOk = runCatching {
-                propio(embed, opcion.etiqueta) { link ->
-                    alguno = true
-                    callback(link)
-                }
-            }.getOrDefault(false)
-
-            // Si no salio, se prueba el extractor de CloudStream, pero un fallo
-            // suyo no puede cortar los demas servidores de la lista.
-            if (!propioOk) {
-                runCatching {
-                    loadExtractor(embed, data, subtitleCallback) { video ->
-                        etiquetado(video, opcion.etiqueta) { link ->
-                            alguno = true
-                            callback(link)
-                        }
+            // Los reproductores los resuelve CloudStream con su lista global:
+            // si esta instalada la extension de resolvedores, los encuentra.
+            runCatching {
+                loadExtractor(embed, data, subtitleCallback) { video ->
+                    etiquetado(video, opcion.etiqueta) { link ->
+                        alguno = true
+                        callback(link)
                     }
                 }
             }
@@ -451,58 +426,6 @@ class Cineplus123Provider : MainAPI() {
                 audioTracks = video.audioTracks
             )
         )
-    }
-
-    /**
-     * Los tres hosts del sitio, resueltos a mano:
-     *  - Byse: SPA que publica sus sources en /api/videos/<codigo>/embed/details
-     *  - Vidara: el reproductor pide la pista a POST /api/stream
-     *  - Uqload (cualquier dominio): el embed lleva un packer con el archivo real
-     */
-    private suspend fun propio(embed: String, etiqueta: String, callback: (ExtractorLink) -> Unit): Boolean {
-        val host = embed.substringAfter("://").substringBefore('/').lowercase()
-        val prefijo = if (etiqueta.isBlank()) "" else etiqueta + " \u00b7 "
-        val nombre = prefijo + host.substringBefore('.').replaceFirstChar { it.uppercase() }
-
-        if (host.contains("byse") && byse(embed, etiqueta, callback)) return true
-
-        if (host.contains("vidara")) {
-            val codigo = embed.trimEnd('/').substringAfterLast('/').substringBefore('?')
-            val cuerpo = runCatching {
-                app.post(
-                    "https://" + host + "/api/stream",
-                    json = mapOf("filecode" to codigo, "device" to "web"),
-                    referer = embed
-                ).text
-            }.getOrNull()
-            val enlace = cuerpo?.let { texto -> campoJson(texto, "streaming_url") }
-                ?.takeIf { it.startsWith("http") }
-            if (enlace != null) {
-                callback(
-                    newExtractorLink(this.name, nombre, enlace, ExtractorLinkType.M3U8) {
-                        this.referer = embed
-                        this.quality = Qualities.Unknown.value
-                    }
-                )
-                return true
-            }
-        }
-
-        val respuesta = runCatching { app.get(embed, referer = mainUrl.trimEnd('/') + "/") }.getOrNull() ?: return false
-        val codigo = runCatching { getAndUnpack(respuesta.text) }.getOrNull() ?: respuesta.text
-        val archivo = Regex("""https?://[^"'\\\s]+?\.(?:m3u8|mp4)[^"'\\\s]*""")
-            .find(codigo)?.value?.replace("\\/", "/")
-        if (archivo != null) {
-            val tipo = if (archivo.contains(".m3u8")) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
-            callback(
-                newExtractorLink(this.name, nombre, archivo, tipo) {
-                    this.referer = embed
-                    this.quality = Qualities.Unknown.value
-                }
-            )
-            return true
-        }
-        return false
     }
 
     /** Dooplay resuelve el embed real por AJAX; devuelve la URL del reproductor. */
@@ -531,50 +454,5 @@ class Cineplus123Provider : MainAPI() {
             .getOrNull()?.let { texto -> campoJson(texto, "embed_url") }?.let { return it }
 
         return null
-    }
-
-    /** Si la ficha no trae lista de servidores, se buscan los reproductores en el HTML. */
-    private fun embedsDirectos(doc: Document): List<String> {
-        val salida = mutableListOf<String>()
-        val anfitrionSitio = mainUrl.substringAfter("://").substringBefore('/')
-        listOf("iframe[src]", "iframe[data-src]", "a[href]").forEach { selector ->
-            doc.select(selector).forEach { el ->
-                val url = el.attr("src").ifBlank { el.attr("data-src").ifBlank { el.attr("href") } }.trim()
-                if (!url.startsWith("http")) return@forEach
-                val host = url.substringAfter("://").substringBefore('/')
-                if (host.contains(anfitrionSitio) || host.contains("youtube") || host.contains("google")) return@forEach
-                if (url.contains("/e/") || url.contains("embed") || url.contains("/v/")) salida.add(url)
-            }
-        }
-        return salida.distinct()
-    }
-
-    private suspend fun byse(embed: String, etiqueta: String, callback: (ExtractorLink) -> Unit): Boolean {
-        val codigo = embed.trimEnd('/').substringAfterLast('/')
-        val host = embed.substringAfter("://").substringBefore('/')
-        if (codigo.isBlank() || host.isBlank()) return false
-
-        val json = runCatching {
-            app.get("https://" + host + "/api/videos/" + codigo + "/embed/details", referer = embed).text
-        }.getOrNull() ?: return false
-
-        val archivos = fileRegex.findAll(json).map { it.groupValues[1] }.distinct().toList()
-        if (archivos.isEmpty()) return false
-
-        val prefijo = if (etiqueta.isBlank()) "" else etiqueta + " \u00b7 "
-        archivos.forEach { archivo ->
-            callback(
-                newExtractorLink(
-                    source = this.name,
-                    name = prefijo + host.substringBefore('.'),
-                    url = archivo,
-                    type = if (archivo.contains(".m3u8")) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
-                ) {
-                    this.referer = embed
-                    this.quality = Qualities.Unknown.value
-                }
-            )
-        }
-        return true
     }
 }

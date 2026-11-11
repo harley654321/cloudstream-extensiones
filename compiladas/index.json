@@ -1,13 +1,13 @@
 {
   "repo": "https://github.com/harley654321/cloudstream-extensiones",
-  "generado": "2026-11-11T01:16:03Z",
+  "generado": "2026-11-10T22:05:32Z",
   "api": "CloudStream 4.9.1",
-  "total": 4,
+  "total": 2,
   "extensiones": [
     {
       "nombre": "AnimeAV1",
       "interno": "AnimeAV1",
-      "version": 13,
+      "version": 7,
       "status": 1,
       "autores": [
         "harley654321"
@@ -19,45 +19,9 @@
         "AnimeMovie",
         "OVA"
       ],
-      "bytes": 30917,
-      "hash": "sha256-3cad5d13f86dc18b6c09c49da27b868b6ca69a91c27cd0305244ed01a2e5d14a",
-      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/AnimeAV1-v13.cs3"
-    },
-    {
-      "nombre": "Cinecalidad",
-      "interno": "Cinecalidad",
-      "version": 8,
-      "status": 1,
-      "autores": [
-        "harley654321"
-      ],
-      "descripcion": "Cinecalidad: peliculas y series en latino con estrenos, generos y servidores Vimeos",
-      "idioma": "es",
-      "tipos": [
-        "Movie",
-        "TvSeries"
-      ],
-      "bytes": 21322,
-      "hash": "sha256-af063d03dd9ff2eb22acf79084a868f1acbd9e0d0bbccc79485c1d7c7415e3e3",
-      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/Cinecalidad-v8.cs3"
-    },
-    {
-      "nombre": "Cineplus123",
-      "interno": "Cineplus123",
-      "version": 7,
-      "status": 1,
-      "autores": [
-        "harley654321"
-      ],
-      "descripcion": "Cineplus123: peliculas y series con servidores etiquetados por idioma (latino, castellano, subtitulado)",
-      "idioma": "es",
-      "tipos": [
-        "Movie",
-        "TvSeries"
-      ],
-      "bytes": 42389,
-      "hash": "sha256-aed470a8d445575197077906099166a37739ef0ce1c8bddfe55b144c4a44bb44",
-      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/Cineplus123-v7.cs3"
+      "bytes": 27642,
+      "hash": "sha256-a58c97e43e91e0822b82ce9d0e265cf558014487a6c879da8067c029bfdc20ad",
+      "url": "https://raw.githubusercontent.com/harley654321/cloudstream-extensiones/main/compiladas/AnimeAV1-v7.cs3"
     },
     {
       "nombre": "PlantillaProvider",
